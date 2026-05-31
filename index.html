@@ -3,76 +3,84 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Neon Coach | Sistema Inteligente de Treinos</title>
+    <title>Neon Forge | Coach de Treinos Futurista</title>
     <meta
       name="description"
-      content="Sistema futurista de treino com formulário inteligente, geração automática de planos, calendário com check-in e integração Firebase."
+      content="Sistema futurista para gerar treinos automáticos para casa ou academia, com calendário, check-in, biblioteca de exercícios e evolução local."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div class="ambient ambient-one"></div>
-    <div class="ambient ambient-two"></div>
+    <div class="bg-grid"></div>
+    <div class="orb orb-a"></div>
+    <div class="orb orb-b"></div>
 
-    <main class="app-shell" id="appShell">
-      <header class="hero">
+    <main class="shell" id="appShell">
+      <section class="hero">
         <div class="hero-copy">
-          <div class="eyebrow">Coach digital com lógica de personal trainer</div>
-          <h1>Treinos automáticos para casa ou academia, prontos em segundos.</h1>
+          <div class="eyebrow">Neon Forge Engine</div>
+          <h1>Treinos futuristas, precisos e prontos para casa ou academia.</h1>
           <p class="hero-text">
-            Responda o formulário, receba um plano semanal ou mensal, acompanhe no
-            calendário, marque check-ins e receba alertas inteligentes quando
-            faltar consistência.
+            Responda o formulário, gere um plano semanal ou mensal, marque check-ins
+            no calendário e acompanhe tudo em um painel local, rápido e responsivo.
           </p>
           <div class="hero-actions">
-            <button class="primary-btn" id="generateBtn" type="button">Gerar meu plano</button>
-            <button class="ghost-btn" id="demoBtn" type="button">Carregar exemplo premium</button>
+            <button class="primary-btn" id="generateBtn" type="button">Gerar treino</button>
+            <button class="ghost-btn" id="demoBtn" type="button">Carregar exemplo</button>
           </div>
-          <div class="hero-badges">
+          <div class="hero-chips">
+            <span>Casa</span>
+            <span>Academia</span>
             <span>HIIT</span>
-            <span>Força</span>
-            <span>Hipertrofia</span>
             <span>Corrida</span>
             <span>Caminhada</span>
             <span>Mobilidade</span>
           </div>
         </div>
-        <aside class="status-panel">
-          <div class="status-chip" id="firebaseStatus">Firebase: aguardando configuração</div>
-          <div class="status-metrics">
-            <div class="metric">
-              <span class="metric-label">Sequência</span>
-              <strong id="streakValue">0 dias</strong>
-            </div>
-            <div class="metric">
-              <span class="metric-label">Conclusão</span>
-              <strong id="completionValue">0%</strong>
-            </div>
-            <div class="metric">
-              <span class="metric-label">Plano</span>
-              <strong id="planValue">Sem plano</strong>
-            </div>
+
+        <aside class="hero-side panel">
+          <div class="hero-side-top">
+            <div class="eyebrow">Modo local</div>
+            <span class="status-pill">Sem Firebase por enquanto</span>
           </div>
-          <div class="signal-box" id="coachSignal">
-            O coach está aguardando seu formulário para criar o protocolo ideal.
+          <div class="metric-stack">
+            <article class="metric-card">
+              <span>Sequência</span>
+              <strong id="streakValue">0 dias</strong>
+            </article>
+            <article class="metric-card">
+              <span>Conclusão</span>
+              <strong id="completionValue">0%</strong>
+            </article>
+            <article class="metric-card">
+              <span>Plano</span>
+              <strong id="planValue">Sem plano</strong>
+            </article>
+            <article class="metric-card">
+              <span>Último treino</span>
+              <strong id="lastWorkoutValue">Sem check-in</strong>
+            </article>
+          </div>
+          <div class="signal-card" id="heroSignal">
+            Preencha o formulário para gerar um treino adaptado ao seu cenário.
           </div>
         </aside>
-      </header>
+      </section>
 
-      <section class="layout-grid">
-        <section class="panel glass-panel form-panel">
+      <section class="grid-two">
+        <section class="panel form-panel">
           <div class="section-head">
             <div>
-              <div class="section-kicker">Questionário inteligente</div>
-              <h2>Monte um treino realmente sob medida</h2>
+              <div class="section-kicker">Diagnóstico inteligente</div>
+              <h2>Monte um treino realmente personalizado</h2>
             </div>
-            <span class="tiny-pill">Plano adaptativo</span>
+            <span class="tiny-pill">Adaptativo</span>
           </div>
 
           <form id="coachForm" class="coach-form">
@@ -171,7 +179,7 @@
                 <label><input type="checkbox" name="equipment" value="barbell" /> Barra</label>
                 <label><input type="checkbox" name="equipment" value="bench" /> Banco</label>
                 <label><input type="checkbox" name="equipment" value="machines" /> Máquinas</label>
-                <label><input type="checkbox" name="equipment" value="bike" /> Bike/esteira</label>
+                <label><input type="checkbox" name="equipment" value="bike" /> Bike / esteira</label>
                 <label><input type="checkbox" name="equipment" value="jumprope" /> Corda</label>
               </div>
             </fieldset>
@@ -214,115 +222,83 @@
           </form>
         </section>
 
-        <section class="panel glass-panel plan-panel">
+        <section class="panel plan-panel">
           <div class="section-head">
             <div>
               <div class="section-kicker">Plano gerado</div>
-              <h2>Seu personal digital entrega o cronograma pronto</h2>
+              <h2>Seu coach entrega o cronograma pronto</h2>
             </div>
             <div class="week-switch" id="weekSwitch"></div>
           </div>
-
           <div id="planSummary" class="summary-card">
             Preencha o formulário e gere um plano inteligente.
           </div>
-          <div id="planContainer" class="plan-container"></div>
+          <div id="planContainer" class="day-grid"></div>
         </section>
       </section>
 
-      <section class="layout-grid secondary-grid">
-        <section class="panel glass-panel">
+      <section class="grid-two secondary-grid">
+        <section class="panel calendar-panel">
           <div class="section-head">
             <div>
               <div class="section-kicker">Calendário</div>
-              <h2>Check-ins, consistência e alertas automáticos</h2>
+              <h2>Check-ins, consistência e progresso</h2>
             </div>
+            <span class="tiny-pill" id="calendarValue">0 treinos</span>
           </div>
           <div id="calendarInfo" class="calendar-info"></div>
           <div id="calendarGrid" class="calendar-grid"></div>
         </section>
 
-        <section class="panel glass-panel">
+        <section class="panel insights-panel">
           <div class="section-head">
             <div>
               <div class="section-kicker">Coach feedback</div>
-              <h2>Motivação e recuperação inteligente</h2>
+              <h2>Alertas, motivação e recuperação</h2>
             </div>
           </div>
           <div id="alertsPanel" class="alerts-panel"></div>
-          <div class="micro-cards">
-            <div class="micro-card">
-              <span>Último treino</span>
-              <strong id="lastWorkoutValue">Sem check-in</strong>
-            </div>
-            <div class="micro-card">
+          <div class="insight-cards">
+            <article class="mini-card">
               <span>Próximo foco</span>
-              <strong id="nextFocusValue">Gere um plano</strong>
-            </div>
-            <div class="micro-card">
-              <span>Modo</span>
-              <strong id="modeValue">Local first + Firebase</strong>
-            </div>
+              <strong id="nextWorkoutValue">Gere um plano</strong>
+            </article>
+            <article class="mini-card">
+              <span>Modo atual</span>
+              <strong id="modeValue">Local only</strong>
+            </article>
+            <article class="mini-card">
+              <span>Plano ativo</span>
+              <strong id="planMetaValue">Sem plano</strong>
+            </article>
           </div>
         </section>
       </section>
 
-      <section class="panel glass-panel library-panel">
+      <section class="panel library-panel">
         <div class="section-head">
           <div>
-            <div class="section-kicker">Biblioteca de exercícios</div>
-            <h2>Execução detalhada com links de demonstração</h2>
+            <div class="section-kicker">Biblioteca</div>
+            <h2>Exercícios detalhados com links de execução</h2>
           </div>
+          <span class="tiny-pill" id="libraryCountValue">0 exercícios</span>
         </div>
         <div id="libraryGrid" class="library-grid"></div>
       </section>
     </main>
 
-    <template id="dayCardTemplate">
-      <article class="day-card">
-        <div class="day-card-head">
-          <div>
-            <div class="day-label"></div>
-            <h3></h3>
-          </div>
-          <span class="day-badge"></span>
-        </div>
-        <div class="day-meta"></div>
-        <div class="day-blocks"></div>
-        <div class="day-actions">
-          <button class="primary-btn checkin-btn" type="button">Marcar check-in</button>
-          <button class="ghost-btn details-btn" type="button">Detalhes</button>
-        </div>
-      </article>
-    </template>
+    <dialog id="dayDialog" class="day-dialog">
+      <form method="dialog" class="dialog-card">
+        <button class="close-btn" type="button" data-dialog-close>×</button>
+        <div class="eyebrow" id="dialogTag">Sessão</div>
+        <h3 id="dialogTitle">Detalhes da sessão</h3>
+        <p id="dialogSummary"></p>
+        <div id="dialogContent" class="dialog-content"></div>
+        <button class="primary-btn" type="submit">Fechar</button>
+      </form>
+    </dialog>
 
-    <template id="exerciseCardTemplate">
-      <article class="exercise-card">
-        <div class="exercise-top">
-          <div>
-            <h4></h4>
-            <p></p>
-          </div>
-          <a target="_blank" rel="noreferrer">Como executar</a>
-        </div>
-        <div class="exercise-stats"></div>
-        <div class="exercise-note"></div>
-      </article>
-    </template>
-
-    <template id="libraryCardTemplate">
-      <article class="library-card">
-        <div class="library-card-top">
-          <h4></h4>
-          <span></span>
-        </div>
-        <p></p>
-        <div class="library-tags"></div>
-        <a target="_blank" rel="noreferrer">Ver execução</a>
-      </article>
-    </template>
-
-    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <script type="module" src="./app.js"></script>
   </body>
