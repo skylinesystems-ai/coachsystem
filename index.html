@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Neon Coach | Sistema Inteligente de Treinos</title>
+    <meta
+      name="description"
+      content="Sistema futurista de treino com formulário inteligente, geração automática de planos, calendário com check-in e integração Firebase."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+
+    <main class="app-shell" id="appShell">
+      <header class="hero">
+        <div class="hero-copy">
+          <div class="eyebrow">Coach digital com lógica de personal trainer</div>
+          <h1>Treinos automáticos para casa ou academia, prontos em segundos.</h1>
+          <p class="hero-text">
+            Responda o formulário, receba um plano semanal ou mensal, acompanhe no
+            calendário, marque check-ins e receba alertas inteligentes quando
+            faltar consistência.
+          </p>
+          <div class="hero-actions">
+            <button class="primary-btn" id="generateBtn" type="button">Gerar meu plano</button>
+            <button class="ghost-btn" id="demoBtn" type="button">Carregar exemplo premium</button>
+          </div>
+          <div class="hero-badges">
+            <span>HIIT</span>
+            <span>Força</span>
+            <span>Hipertrofia</span>
+            <span>Corrida</span>
+            <span>Caminhada</span>
+            <span>Mobilidade</span>
+          </div>
+        </div>
+        <aside class="status-panel">
+          <div class="status-chip" id="firebaseStatus">Firebase: aguardando configuração</div>
+          <div class="status-metrics">
+            <div class="metric">
+              <span class="metric-label">Sequência</span>
+              <strong id="streakValue">0 dias</strong>
+            </div>
+            <div class="metric">
+              <span class="metric-label">Conclusão</span>
+              <strong id="completionValue">0%</strong>
+            </div>
+            <div class="metric">
+              <span class="metric-label">Plano</span>
+              <strong id="planValue">Sem plano</strong>
+            </div>
+          </div>
+          <div class="signal-box" id="coachSignal">
+            O coach está aguardando seu formulário para criar o protocolo ideal.
+          </div>
+        </aside>
+      </header>
+
+      <section class="layout-grid">
+        <section class="panel glass-panel form-panel">
+          <div class="section-head">
+            <div>
+              <div class="section-kicker">Questionário inteligente</div>
+              <h2>Monte um treino realmente sob medida</h2>
+            </div>
+            <span class="tiny-pill">Plano adaptativo</span>
+          </div>
+
+          <form id="coachForm" class="coach-form">
+            <div class="form-grid">
+              <label>
+                Nome
+                <input type="text" name="name" placeholder="Seu nome" />
+              </label>
+              <label>
+                Idade
+                <input type="number" name="age" min="12" max="90" value="30" />
+              </label>
+              <label>
+                Objetivo principal
+                <select name="goal">
+                  <option value="emagrecimento">Emagrecimento</option>
+                  <option value="hipertrofia">Hipertrofia</option>
+                  <option value="forca">Força</option>
+                  <option value="resistencia">Resistência</option>
+                  <option value="recomposicao">Recomposição corporal</option>
+                  <option value="corrida">Corrida</option>
+                  <option value="caminhada">Caminhada</option>
+                  <option value="mobilidade">Mobilidade / postura</option>
+                  <option value="misto">Misto / performance</option>
+                </select>
+              </label>
+              <label>
+                Horizonte
+                <select name="horizon">
+                  <option value="weekly">Semanal</option>
+                  <option value="monthly">Mensal</option>
+                </select>
+              </label>
+              <label>
+                Local
+                <select name="location">
+                  <option value="home">Casa sem equipamentos</option>
+                  <option value="gym">Academia</option>
+                  <option value="hybrid">Híbrido</option>
+                </select>
+              </label>
+              <label>
+                Nível
+                <select name="level">
+                  <option value="beginner">Iniciante</option>
+                  <option value="intermediate">Intermediário</option>
+                  <option value="advanced">Avançado</option>
+                </select>
+              </label>
+              <label>
+                Dias por semana
+                <select name="daysPerWeek">
+                  <option value="3">3 dias</option>
+                  <option value="4">4 dias</option>
+                  <option value="5" selected>5 dias</option>
+                  <option value="6">6 dias</option>
+                  <option value="7">7 dias</option>
+                </select>
+              </label>
+              <label>
+                Tempo por sessão
+                <select name="sessionTime">
+                  <option value="20">20 min</option>
+                  <option value="30">30 min</option>
+                  <option value="45" selected>45 min</option>
+                  <option value="60">60 min</option>
+                  <option value="75">75 min</option>
+                </select>
+              </label>
+              <label>
+                Cardio preferido
+                <select name="cardioStyle">
+                  <option value="mixed">Misto</option>
+                  <option value="hiit">HIIT</option>
+                  <option value="run">Corrida</option>
+                  <option value="walk">Caminhada</option>
+                  <option value="zone2">Zona 2</option>
+                </select>
+              </label>
+              <label>
+                Intensidade
+                <select name="intensity">
+                  <option value="moderate">Moderada</option>
+                  <option value="high" selected>Alta</option>
+                  <option value="very_high">Muito alta</option>
+                </select>
+              </label>
+            </div>
+
+            <fieldset class="form-fieldset">
+              <legend>Equipamentos disponíveis</legend>
+              <div class="checkbox-grid">
+                <label><input type="checkbox" name="equipment" value="none" checked /> Sem equipamento</label>
+                <label><input type="checkbox" name="equipment" value="dumbbells" /> Halteres</label>
+                <label><input type="checkbox" name="equipment" value="band" /> Elásticos</label>
+                <label><input type="checkbox" name="equipment" value="barbell" /> Barra</label>
+                <label><input type="checkbox" name="equipment" value="bench" /> Banco</label>
+                <label><input type="checkbox" name="equipment" value="machines" /> Máquinas</label>
+                <label><input type="checkbox" name="equipment" value="bike" /> Bike/esteira</label>
+                <label><input type="checkbox" name="equipment" value="jumprope" /> Corda</label>
+              </div>
+            </fieldset>
+
+            <fieldset class="form-fieldset">
+              <legend>Foco adicional</legend>
+              <div class="checkbox-grid">
+                <label><input type="checkbox" name="focus" value="strength" checked /> Força</label>
+                <label><input type="checkbox" name="focus" value="hypertrophy" checked /> Hipertrofia</label>
+                <label><input type="checkbox" name="focus" value="cardio" checked /> Cardio</label>
+                <label><input type="checkbox" name="focus" value="mobility" /> Mobilidade</label>
+                <label><input type="checkbox" name="focus" value="running" /> Corrida</label>
+                <label><input type="checkbox" name="focus" value="walking" /> Caminhada</label>
+              </div>
+            </fieldset>
+
+            <div class="form-grid">
+              <label class="wide">
+                Limitações, dores ou histórico de lesões
+                <textarea
+                  name="restrictions"
+                  rows="4"
+                  placeholder="Ex.: joelho sensível, lombar, ombro, volta após sedentarismo..."
+                ></textarea>
+              </label>
+              <label class="wide">
+                Preferências específicas
+                <textarea
+                  name="preferences"
+                  rows="4"
+                  placeholder="Ex.: gosto de treinos curtos, quero foco em glúteos, quero corrida 2x/semana..."
+                ></textarea>
+              </label>
+            </div>
+
+            <div class="form-actions">
+              <button class="primary-btn" type="submit">Criar meu treino</button>
+              <button class="ghost-btn" id="resetBtn" type="button">Resetar estado local</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel glass-panel plan-panel">
+          <div class="section-head">
+            <div>
+              <div class="section-kicker">Plano gerado</div>
+              <h2>Seu personal digital entrega o cronograma pronto</h2>
+            </div>
+            <div class="week-switch" id="weekSwitch"></div>
+          </div>
+
+          <div id="planSummary" class="summary-card">
+            Preencha o formulário e gere um plano inteligente.
+          </div>
+          <div id="planContainer" class="plan-container"></div>
+        </section>
+      </section>
+
+      <section class="layout-grid secondary-grid">
+        <section class="panel glass-panel">
+          <div class="section-head">
+            <div>
+              <div class="section-kicker">Calendário</div>
+              <h2>Check-ins, consistência e alertas automáticos</h2>
+            </div>
+          </div>
+          <div id="calendarInfo" class="calendar-info"></div>
+          <div id="calendarGrid" class="calendar-grid"></div>
+        </section>
+
+        <section class="panel glass-panel">
+          <div class="section-head">
+            <div>
+              <div class="section-kicker">Coach feedback</div>
+              <h2>Motivação e recuperação inteligente</h2>
+            </div>
+          </div>
+          <div id="alertsPanel" class="alerts-panel"></div>
+          <div class="micro-cards">
+            <div class="micro-card">
+              <span>Último treino</span>
+              <strong id="lastWorkoutValue">Sem check-in</strong>
+            </div>
+            <div class="micro-card">
+              <span>Próximo foco</span>
+              <strong id="nextFocusValue">Gere um plano</strong>
+            </div>
+            <div class="micro-card">
+              <span>Modo</span>
+              <strong id="modeValue">Local first + Firebase</strong>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section class="panel glass-panel library-panel">
+        <div class="section-head">
+          <div>
+            <div class="section-kicker">Biblioteca de exercícios</div>
+            <h2>Execução detalhada com links de demonstração</h2>
+          </div>
+        </div>
+        <div id="libraryGrid" class="library-grid"></div>
+      </section>
+    </main>
+
+    <template id="dayCardTemplate">
+      <article class="day-card">
+        <div class="day-card-head">
+          <div>
+            <div class="day-label"></div>
+            <h3></h3>
+          </div>
+          <span class="day-badge"></span>
+        </div>
+        <div class="day-meta"></div>
+        <div class="day-blocks"></div>
+        <div class="day-actions">
+          <button class="primary-btn checkin-btn" type="button">Marcar check-in</button>
+          <button class="ghost-btn details-btn" type="button">Detalhes</button>
+        </div>
+      </article>
+    </template>
+
+    <template id="exerciseCardTemplate">
+      <article class="exercise-card">
+        <div class="exercise-top">
+          <div>
+            <h4></h4>
+            <p></p>
+          </div>
+          <a target="_blank" rel="noreferrer">Como executar</a>
+        </div>
+        <div class="exercise-stats"></div>
+        <div class="exercise-note"></div>
+      </article>
+    </template>
+
+    <template id="libraryCardTemplate">
+      <article class="library-card">
+        <div class="library-card-top">
+          <h4></h4>
+          <span></span>
+        </div>
+        <p></p>
+        <div class="library-tags"></div>
+        <a target="_blank" rel="noreferrer">Ver execução</a>
+      </article>
+    </template>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
