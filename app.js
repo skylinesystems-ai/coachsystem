@@ -1,397 +1,70 @@
-import { getFirebaseStatus, getFirebaseUserId, initCoachFirebase, loadCoachState, saveCoachState } from "./firebase.js";
+const STORAGE_KEY = "neon-forge-state-v1";
 
-const STORAGE_KEY = "neon-coach-state-v1";
-const CHECKIN_KEY = "neon-coach-checkins-v1";
-const PROFILE_KEY = "neon-coach-profile-v1";
-const PLAN_KEY = "neon-coach-plan-v1";
-const CUSTOM_CONFIG_KEY = "neon-coach-config-v1";
-
-const els = {
-  appShell: document.getElementById("appShell"),
-  coachForm: document.getElementById("coachForm"),
-  generateBtn: document.getElementById("generateBtn"),
-  demoBtn: document.getElementById("demoBtn"),
-  resetBtn: document.getElementById("resetBtn"),
-  toast: document.getElementById("toast"),
-  planSummary: document.getElementById("planSummary"),
-  planContainer: document.getElementById("planContainer"),
-  weekSwitch: document.getElementById("weekSwitch"),
-  calendarGrid: document.getElementById("calendarGrid"),
-  calendarInfo: document.getElementById("calendarInfo"),
-  alertsPanel: document.getElementById("alertsPanel"),
-  libraryGrid: document.getElementById("libraryGrid"),
-  firebaseStatus: document.getElementById("firebaseStatus"),
-  coachSignal: document.getElementById("coachSignal"),
-  streakValue: document.getElementById("streakValue"),
-  completionValue: document.getElementById("completionValue"),
-  planValue: document.getElementById("planValue"),
-  lastWorkoutValue: document.getElementById("lastWorkoutValue"),
-  nextFocusValue: document.getElementById("nextFocusValue"),
-  modeValue: document.getElementById("modeValue"),
-  dayCardTemplate: document.getElementById("dayCardTemplate"),
-  exerciseCardTemplate: document.getElementById("exerciseCardTemplate"),
-  libraryCardTemplate: document.getElementById("libraryCardTemplate"),
+const GOAL_LABELS = {
+    emagrecimento: "Emagrecimento",
+    hipertrofia: "Hipertrofia",
+    forca: "Força",
+    resistencia: "Resistência",
+    recomposicao: "Recomposição",
+    corrida: "Corrida",
+    caminhada: "Caminhada",
+    mobilidade: "Mobilidade",
+    misto: "Misto",
 };
 
-const exerciseLibrary = [
-  {
-    id: "agachamento",
-    name: "Agachamento livre",
-    focus: ["legs", "strength", "hypertrophy", "full"],
-    modes: ["home", "gym", "hybrid"],
-    equipment: ["none", "dumbbells", "barbell", "machines"],
-    muscles: ["quadríceps", "glúteos", "core"],
-    detail: "Desça controlando o tronco, mantenha o abdome travado e empurre o chão para subir.",
-    cues: "Pense em sentar entre as pernas, não sobre as pernas.",
-    search: "agachamento livre execucao correta",
-    riskTags: ["knee"],
-  },
-  {
-    id: "avanco",
-    name: "Avanço alternado",
-    focus: ["legs", "hypertrophy", "full"],
-    modes: ["home", "gym", "hybrid"],
-    equipment: ["none", "dumbbells"],
-    muscles: ["glúteos", "quadríceps", "estabilidade"],
-    detail: "Dê um passo amplo e desça com o joelho traseiro apontando para o chão.",
-    cues: "Mantenha o tronco alto e o joelho da frente estável.",
-    search: "avanco alternado execucao correta",
-    riskTags: ["knee"],
-  },
-  {
-    id: "flexao",
-    name: "Flexão de braço",
-    focus: ["push", "strength", "hypertrophy", "full"],
-    modes: ["home", "gym", "hybrid"],
-    equipment: ["none", "dumbbells", "band"],
-    muscles: ["peito", "tríceps", "core"],
-    detail: "Mãos firmes no chão, corpo alinhado e cotovelos levemente fechados.",
-    cues: "Não deixe a lombar cair.",
-    search: "flexao de braco execucao correta",
-    riskTags: ["shoulder"],
-  },
-  {
-    id: "flexao_inclinada",
-    name: "Flexão inclinada",
-    focus: ["push", "beginner", "full"],
-    modes: ["home", "gym", "hybrid"],
-    equipment: ["bench", "none"],
-    muscles: ["peito", "tríceps", "core"],
-    detail: "Apoie as mãos em superfície elevada para reduzir a alavanca.",
-    cues: "Excelente para reintrodução de força em iniciantes.",
-    search: "flexao inclinada execucao correta",
-    riskTags: ["shoulder"],
-  },
-  {
-    id: "pike",
-    name: "Pike push-up",
-    focus: ["push", "shoulders", "strength", "hypertrophy"],
-    modes: ["home", "hybrid"],
-    equipment: ["none"],
-    muscles: ["ombros", "tríceps"],
-    detail: "Quadril elevado, cabeça aponta para o chão e a força vem do ombro.",
-    cues: "Ideal para progressão de desenvolvimento sem equipamento.",
-    search: "pike push up execucao correta",
-    riskTags: ["shoulder"],
-  },
-  {
-    id: "ponte_gluteo",
-    name: "Ponte de glúteo",
-    focus: ["legs", "hypertrophy", "mobility", "full"],
-    modes: ["home", "gym", "hybrid"],
-    equipment: ["none", "band", "dumbbells", "barbell"],
-    muscles: ["glúteos", "posterior de coxa"],
-    detail: "Suba contraindo glúteos, sem hiperextender a lombar.",
-    cues: "Pause 1 segundo no topo para aumentar a conexão mente-músculo.",
-    search: "ponte de gluteo execucao correta",
-    riskTags: ["lower_back"],
-  },
-  {
-    id: "prancha",
-    name: "Prancha frontal",
-    focus: ["core", "mobility", "full"],
-    modes: ["home", "gym", "hybrid"],
-    equipment: ["none"],
-    muscles: ["core", "estabilidade"],
-    detail: "Antebraços no chão, glúteos ativos e costelas recolhidas.",
-    cues: "Respiração curta e firme, sem prender o ar.",
-    search: "prancha frontal execucao correta",
-    riskTags: [],
-  },
-  {
-    id: "dead_bug",
-    name: "Dead bug",
-    focus: ["core", "mobility", "full"],
-    modes: ["home", "gym", "hybrid"],
-    equipment: ["none"],
-    muscles: ["core", "coordenação"],
-    detail: "Mantenha lombar colada no chão enquanto alterna braço e perna.",
-    cues: "Ótimo para proteger a lombar e ensinar controle corporal.",
-    search: "dead bug exercicio execucao correta",
-    riskTags: ["lower_back"],
-  },
-  {
-    id: "burpee",
-    name: "Burpee",
-    focus: ["hiit", "cardio", "full"],
-    modes: ["home", "gym", "hybrid"],
-    equipment: ["none"],
-    muscles: ["corpo inteiro"],
-    detail: "Use como finalizador explosivo quando o objetivo for gasto calórico e potência.",
-    cues: "Regule a intensidade se houver impacto excessivo.",
-    search: "burpee execucao correta",
-    riskTags: ["knee", "ankle", "shoulder"],
-  },
-  {
-    id: "mountain_climber",
-    name: "Mountain climber",
-    focus: ["hiit", "cardio", "core", "full"],
-    modes: ["home", "gym", "hybrid"],
-    equipment: ["none"],
-    muscles: ["core", "cardio"],
-    detail: "Acelere os joelhos sem perder a posição de prancha.",
-    cues: "Use como bloco de HIIT curto e intenso.",
-    search: "mountain climber execucao correta",
-    riskTags: ["wrist"],
-  },
-  {
-    id: "jumping_jack",
-    name: "Jumping jack",
-    focus: ["cardio", "hiit", "full"],
-    modes: ["home", "gym", "hybrid"],
-    equipment: ["none"],
-    muscles: ["condicionamento"],
-    detail: "Movimento clássico para subir batimentos e entrar em calor.",
-    cues: "Troque por versão sem salto se houver dor no impacto.",
-    search: "jumping jack execucao correta",
-    riskTags: ["ankle", "knee"],
-  },
-  {
-    id: "corrida_estacionaria",
-    name: "Corrida estacionária",
-    focus: ["cardio", "running", "hiit"],
-    modes: ["home", "gym", "hybrid"],
-    equipment: ["none"],
-    muscles: ["cardio", "coordenação"],
-    detail: "Use frequência de passadas controlada para elevar o consumo energético.",
-    cues: "Excelente substituto para corrida quando o espaço é limitado.",
-    search: "corrida estacionaria execucao correta",
-    riskTags: ["ankle", "knee"],
-  },
-  {
-    id: "supino",
-    name: "Supino reto",
-    focus: ["push", "strength", "hypertrophy", "full"],
-    modes: ["gym", "hybrid"],
-    equipment: ["barbell", "dumbbells", "bench", "machines"],
-    muscles: ["peito", "tríceps", "ombros"],
-    detail: "Escápulas encaixadas, pés firmes e trajetória consistente da barra.",
-    cues: "Base para força e hipertrofia no treino de membros superiores.",
-    search: "supino reto execucao correta",
-    riskTags: ["shoulder"],
-  },
-  {
-    id: "remada",
-    name: "Remada curvada",
-    focus: ["pull", "strength", "hypertrophy", "full"],
-    modes: ["gym", "hybrid"],
-    equipment: ["barbell", "dumbbells", "band"],
-    muscles: ["costas", "bíceps", "retração escapular"],
-    detail: "Incline o tronco e puxe com o cotovelo, não apenas com a mão.",
-    cues: "Mantenha a coluna neutra durante toda a série.",
-    search: "remada curvada execucao correta",
-    riskTags: ["lower_back"],
-  },
-  {
-    id: "superman_pull",
-    name: "Superman pull",
-    focus: ["pull", "core", "mobility", "full"],
-    modes: ["home", "hybrid"],
-    equipment: ["none"],
-    muscles: ["costas", "lombar", "glúteos"],
-    detail: "Eleve braços e pernas e simule uma puxada curta com escápulas ativas.",
-    cues: "Excelente opção de pull caseiro quando não há equipamento.",
-    search: "superman pull exercicio execucao correta",
-    riskTags: ["lower_back"],
-  },
-  {
-    id: "y_t_w",
-    name: "Y-T-W no solo",
-    focus: ["pull", "mobility", "full"],
-    modes: ["home", "hybrid"],
-    equipment: ["none"],
-    muscles: ["costas", "ombros", "escápulas"],
-    detail: "De bruços, eleve os braços desenhando Y, T e W para ativar as costas.",
-    cues: "Ótimo para postura, estabilidade escapular e aquecimento.",
-    search: "y t w exercicio costas execucao correta",
-    riskTags: ["shoulder"],
-  },
-  {
-    id: "reverse_snow_angel",
-    name: "Reverse snow angel",
-    focus: ["pull", "mobility", "full"],
-    modes: ["home", "hybrid"],
-    equipment: ["none"],
-    muscles: ["costas", "ombros", "core"],
-    detail: "Movimento controlado de braços do quadril até acima da cabeça sem perder o tronco.",
-    cues: "Reforça controle de escápulas e mobilidade torácica.",
-    search: "reverse snow angel exercicio execucao correta",
-    riskTags: ["shoulder"],
-  },
-  {
-    id: "puxada",
-    name: "Puxada alta",
-    focus: ["pull", "strength", "hypertrophy", "full"],
-    modes: ["gym"],
-    equipment: ["machines"],
-    muscles: ["costas", "bíceps"],
-    detail: "Leve a barra até a linha superior do peito sem jogar o corpo para trás.",
-    cues: "Pense em levar os cotovelos para baixo.",
-    search: "puxada alta execucao correta",
-    riskTags: ["shoulder"],
-  },
-  {
-    id: "terra_romeno",
-    name: "Terra romeno",
-    focus: ["legs", "strength", "hypertrophy", "full"],
-    modes: ["gym", "hybrid"],
-    equipment: ["barbell", "dumbbells"],
-    muscles: ["posterior de coxa", "glúteos", "lombar"],
-    detail: "Hinge no quadril, canelas quase verticais e barra próxima do corpo.",
-    cues: "Exercício excelente para cadeia posterior.",
-    search: "levantamento terra romeno execucao correta",
-    riskTags: ["lower_back"],
-  },
-  {
-    id: "leg_press",
-    name: "Leg press",
-    focus: ["legs", "hypertrophy", "strength", "full"],
-    modes: ["gym"],
-    equipment: ["machines"],
-    muscles: ["quadríceps", "glúteos"],
-    detail: "Ajuste a amplitude sem perder a lombar colada no encosto.",
-    cues: "Controle a fase excêntrica por 2 a 3 segundos.",
-    search: "leg press execucao correta",
-    riskTags: ["knee", "lower_back"],
-  },
-  {
-    id: "desenvolvimento",
-    name: "Desenvolvimento militar",
-    focus: ["push", "strength", "hypertrophy", "full"],
-    modes: ["gym", "hybrid"],
-    equipment: ["dumbbells", "barbell"],
-    muscles: ["ombros", "tríceps", "core"],
-    detail: "Empurre acima da cabeça sem arquear excessivamente as costas.",
-    cues: "Core forte reduz compensações lombares.",
-    search: "desenvolvimento militar execucao correta",
-    riskTags: ["shoulder", "lower_back"],
-  },
-  {
-    id: "panturrilha",
-    name: "Elevação de panturrilha",
-    focus: ["legs", "hypertrophy", "full"],
-    modes: ["home", "gym", "hybrid"],
-    equipment: ["none", "dumbbells", "machines"],
-    muscles: ["panturrilhas"],
-    detail: "Suba totalmente e desça com controle, buscando amplitude máxima.",
-    cues: "Segure 1 segundo no topo.",
-    search: "elevacao de panturrilha execucao correta",
-    riskTags: ["ankle"],
-  },
-  {
-    id: "mobilidade_quadril",
-    name: "Mobilidade de quadril",
-    focus: ["mobility", "full"],
-    modes: ["home", "gym", "hybrid"],
-    equipment: ["none"],
-    muscles: ["quadril", "tornozelo"],
-    detail: "Sequência de abertura e rotação para melhorar agachamentos e passadas.",
-    cues: "Use como aquecimento ou recuperação ativa.",
-    search: "mobilidade de quadril exercicios",
-    riskTags: [],
-  },
-  {
-    id: "cat_cow",
-    name: "Cat-cow",
-    focus: ["mobility", "full"],
-    modes: ["home", "gym", "hybrid"],
-    equipment: ["none"],
-    muscles: ["coluna"],
-    detail: "Alterne flexão e extensão da coluna com respiração coordenada.",
-    cues: "Ótimo para liberar a rigidez da manhã.",
-    search: "cat cow exercicio execucao correta",
-    riskTags: ["lower_back"],
-  },
-  {
-    id: "caminhada",
-    name: "Caminhada acelerada",
-    focus: ["walking", "cardio", "endurance", "recovery"],
-    modes: ["home", "gym", "hybrid"],
-    equipment: ["none"],
-    muscles: ["cardio", "recuperação"],
-    detail: "Zona 2, ritmo contínuo e confortável para sustentar volume semanal.",
-    cues: "Base excelente para queima calórica e saúde cardiovascular.",
-    search: "caminhada acelerada beneficios e execucao",
-    riskTags: ["ankle", "knee"],
-  },
-  {
-    id: "corrida",
-    name: "Corrida leve",
-    focus: ["running", "cardio", "endurance"],
-    modes: ["home", "gym", "hybrid"],
-    equipment: ["none", "bike"],
-    muscles: ["cardio", "pernas"],
-    detail: "Cadência estável e respiração ritmada para construir resistência.",
-    cues: "Perfeita para dias de zona 2 ou progressão de base aeróbica.",
-    search: "corrida leve tecnicas de corrida",
-    riskTags: ["ankle", "knee"],
-  },
-  {
-    id: "bike",
-    name: "Bike ergométrica",
-    focus: ["cardio", "endurance", "recovery"],
-    modes: ["gym", "hybrid"],
-    equipment: ["bike"],
-    muscles: ["cardio", "pernas"],
-    detail: "Ideal para cardio de baixo impacto com controle de zona cardíaca.",
-    cues: "Use para HIIT ou zona 2, conforme o objetivo.",
-    search: "bike ergometrica treino hiit",
-    riskTags: ["knee"],
-  },
-];
-
-const storage = {
-  read(key, fallback = null) {
-    try {
-      const value = localStorage.getItem(key);
-      return value ? JSON.parse(value) : fallback;
-    } catch {
-      return fallback;
-    }
-  },
-  write(key, value) {
-    localStorage.setItem(key, JSON.stringify(value));
-  },
-  remove(key) {
-    localStorage.removeItem(key);
-  },
+const GOAL_TONES = {
+    emagrecimento: "Volume inteligente, gasto calórico e cardio bem distribuído.",
+    hipertrofia: "Volume progressivo, controle de execução e recuperação planejada.",
+    forca: "Séries pesadas, maior descanso e padrões compostos prioritários.",
+    resistencia: "Capacidade aeróbica, densidade de esforço e controle de ritmo.",
+    recomposicao: "Mistura equilibrada de força, cardio e recuperação.",
+    corrida: "Progressão aeróbica, técnica e consistência semanal.",
+    caminhada: "Zona 2, constância e recuperação ativa.",
+    mobilidade: "Controle articular, estabilidade e mobilidade consciente.",
+    misto: "Plano híbrido com força, cardio e mobilidade.",
 };
 
-const state = {
-  profile: storage.read(PROFILE_KEY, null) || getDefaultProfile(),
-  plan: storage.read(PLAN_KEY, null),
-  checkins: storage.read(CHECKIN_KEY, {}),
-  selectedWeek: 0,
-  firebaseEnabled: false,
-  firebaseReady: false,
-  firebaseReason: "Local first",
+const SESSION_TAGS = {
+    push: ["push"],
+    pull: ["pull"],
+    legs: ["legs"],
+    lower: ["legs", "posterior", "glutes"],
+    upper: ["push", "pull"],
+    full: ["full", "push", "pull", "legs", "core", "cardio"],
+    conditioning: ["conditioning", "hiit", "cardio"],
+    intervals: ["conditioning", "hiit", "cardio"],
+    mobility: ["mobility", "core"],
+    core: ["core", "mobility"],
+    run: ["running", "cardio", "endurance"],
+    walk: ["walking", "cardio", "recovery"],
 };
 
-function getDefaultProfile() {
-  return {
+const GOAL_SEQUENCES = {
+    emagrecimento: ["full", "conditioning", "lower", "upper", "intervals", "mobility", "walk"],
+    hipertrofia: ["push", "pull", "legs", "upper", "lower", "conditioning", "mobility"],
+    forca: ["lower", "push", "pull", "lower", "upper", "full", "mobility"],
+    resistencia: ["conditioning", "run", "strength", "conditioning", "walk", "mobility", "core"],
+    recomposicao: ["push", "pull", "legs", "conditioning", "upper", "lower", "mobility"],
+    corrida: ["run", "strength", "intervals", "run", "mobility", "walk", "core"],
+    caminhada: ["walk", "strength", "walk", "mobility", "walk", "core", "conditioning"],
+    mobilidade: ["mobility", "core", "mobility", "walk", "mobility", "strength", "mobility"],
+    misto: ["full", "push", "pull", "legs", "conditioning", "upper", "mobility"],
+};
+
+const ACTIVE_WEEKDAYS = {
+    3: [1, 3, 5],
+    4: [1, 2, 4, 6],
+    5: [1, 2, 3, 5, 6],
+    6: [1, 2, 3, 4, 5, 6],
+    7: [0, 1, 2, 3, 4, 5, 6],
+};
+
+const WEEK_PHASES = ["Base", "Progressão", "Pico", "Deload"];
+
+const DEFAULT_PROFILE = {
     name: "",
     age: 30,
-    goal: "emagrecimento",
+    goal: "misto",
     horizon: "weekly",
     location: "home",
     level: "beginner",
@@ -403,1071 +76,1650 @@ function getDefaultProfile() {
     focus: ["strength", "hypertrophy", "cardio"],
     restrictions: "",
     preferences: "",
-  };
+};
+
+const exerciseLibrary = [
+    {
+        id: "push_up",
+        name: "Flexão de braço",
+        tags: ["push", "strength", "hypertrophy", "full"],
+        modes: ["home", "hybrid"],
+        equipment: ["none"],
+        muscles: ["peito", "tríceps", "core"],
+        detail: "Corpo alinhado, abdome travado e cotovelos controlados.",
+        cue: "Desça com o peito apontando entre as mãos.",
+        linkQuery: "flexão de braço execução correta",
+        riskTags: ["shoulder", "wrist"],
+    },
+    {
+        id: "incline_push_up",
+        name: "Flexão inclinada",
+        tags: ["push", "beginner", "full"],
+        modes: ["home", "hybrid"],
+        equipment: ["bench", "none"],
+        muscles: ["peito", "tríceps", "core"],
+        detail: "Use uma bancada ou parede para reduzir a carga.",
+        cue: "Excelente para adaptação inicial.",
+        linkQuery: "flexão inclinada execução correta",
+        riskTags: ["shoulder", "wrist"],
+    },
+    {
+        id: "pike_push_up",
+        name: "Pike push-up",
+        tags: ["push", "shoulders", "hypertrophy", "full"],
+        modes: ["home", "hybrid"],
+        equipment: ["none"],
+        muscles: ["ombros", "tríceps"],
+        detail: "Quadril alto, tronco inclinado e foco no ombro.",
+        cue: "Pense em empurrar o chão para longe.",
+        linkQuery: "pike push up execução correta",
+        riskTags: ["shoulder", "wrist"],
+    },
+    {
+        id: "squat",
+        name: "Agachamento livre",
+        tags: ["legs", "strength", "hypertrophy", "full"],
+        modes: ["home", "gym", "hybrid"],
+        equipment: ["none", "dumbbells", "barbell", "machines"],
+        muscles: ["quadríceps", "glúteos", "core"],
+        detail: "Pés firmes, tronco estável e amplitude controlada.",
+        cue: "Desça com controle e suba acelerando.",
+        linkQuery: "agachamento livre execução correta",
+        riskTags: ["knee", "lower_back"],
+    },
+    {
+        id: "split_squat",
+        name: "Split squat",
+        tags: ["legs", "balance", "hypertrophy", "full"],
+        modes: ["home", "gym", "hybrid"],
+        equipment: ["none", "dumbbells"],
+        muscles: ["glúteos", "quadríceps", "estabilidade"],
+        detail: "Base unilateral para pernas e estabilidade de quadril.",
+        cue: "Mantenha o tronco alto e o joelho da frente firme.",
+        linkQuery: "split squat execução correta",
+        riskTags: ["knee"],
+    },
+    {
+        id: "lunge",
+        name: "Afundo alternado",
+        tags: ["legs", "hypertrophy", "full"],
+        modes: ["home", "gym", "hybrid"],
+        equipment: ["none", "dumbbells"],
+        muscles: ["glúteos", "quadríceps"],
+        detail: "Passo amplo e descida vertical com controle.",
+        cue: "O joelho da frente acompanha a ponta do pé.",
+        linkQuery: "afundo alternado execução correta",
+        riskTags: ["knee"],
+    },
+    {
+        id: "glute_bridge",
+        name: "Ponte de glúteo",
+        tags: ["legs", "glutes", "mobility", "full"],
+        modes: ["home", "gym", "hybrid"],
+        equipment: ["none", "band", "dumbbells", "barbell"],
+        muscles: ["glúteos", "posterior de coxa"],
+        detail: "Eleve o quadril sem hiperestender a lombar.",
+        cue: "Segure um segundo no topo.",
+        linkQuery: "ponte de glúteo execução correta",
+        riskTags: ["lower_back"],
+    },
+    {
+        id: "wall_sit",
+        name: "Wall sit",
+        tags: ["legs", "conditioning", "full"],
+        modes: ["home", "gym", "hybrid"],
+        equipment: ["none"],
+        muscles: ["quadríceps", "resistência"],
+        detail: "Isometria simples e brutal para perna e tolerância ao esforço.",
+        cue: "Costas na parede e respiração controlada.",
+        linkQuery: "wall sit exercício execução correta",
+        riskTags: ["knee"],
+    },
+    {
+        id: "plank",
+        name: "Prancha frontal",
+        tags: ["core", "mobility", "full"],
+        modes: ["home", "gym", "hybrid"],
+        equipment: ["none"],
+        muscles: ["core", "estabilidade"],
+        detail: "Corpo inteiro em bloco, costelas fechadas e glúteos ativos.",
+        cue: "Não deixe a lombar cair.",
+        linkQuery: "prancha frontal execução correta",
+        riskTags: ["wrist", "lower_back"],
+    },
+    {
+        id: "dead_bug",
+        name: "Dead bug",
+        tags: ["core", "mobility", "full"],
+        modes: ["home", "gym", "hybrid"],
+        equipment: ["none"],
+        muscles: ["core", "coordenação"],
+        detail: "Controle lombar e coordenação contralateral.",
+        cue: "Cole a lombar no chão o tempo todo.",
+        linkQuery: "dead bug exercício execução correta",
+        riskTags: ["lower_back"],
+    },
+    {
+        id: "bird_dog",
+        name: "Bird dog",
+        tags: ["core", "mobility", "full"],
+        modes: ["home", "gym", "hybrid"],
+        equipment: ["none"],
+        muscles: ["core", "estabilidade"],
+        detail: "Ótimo para tronco e estabilidade lombar.",
+        cue: "Estenda braço e perna sem girar o quadril.",
+        linkQuery: "bird dog exercício execução correta",
+        riskTags: ["lower_back"],
+    },
+    {
+        id: "superman_pull",
+        name: "Superman pull",
+        tags: ["pull", "core", "mobility", "full"],
+        modes: ["home", "hybrid"],
+        equipment: ["none"],
+        muscles: ["costas", "lombar", "glúteos"],
+        detail: "Elevação leve com puxada curta para ativar costas.",
+        cue: "Perfeito para casa sem equipamento.",
+        linkQuery: "superman pull exercício execução correta",
+        riskTags: ["lower_back"],
+    },
+    {
+        id: "y_t_w",
+        name: "Y-T-W no solo",
+        tags: ["pull", "mobility", "full"],
+        modes: ["home", "hybrid"],
+        equipment: ["none"],
+        muscles: ["costas", "ombros", "escápulas"],
+        detail: "Postura, escápulas e mobilidade torácica.",
+        cue: "Desenhe as letras com controle e sem pressa.",
+        linkQuery: "Y T W exercício costas execução correta",
+        riskTags: ["shoulder"],
+    },
+    {
+        id: "reverse_snow_angel",
+        name: "Reverse snow angel",
+        tags: ["pull", "mobility", "full"],
+        modes: ["home", "hybrid"],
+        equipment: ["none"],
+        muscles: ["costas", "ombros", "core"],
+        detail: "Abertura de ombros com controle e amplitude.",
+        cue: "Ideal para aquecimento e postura.",
+        linkQuery: "reverse snow angel exercício execução correta",
+        riskTags: ["shoulder"],
+    },
+    {
+        id: "row",
+        name: "Remada curvada",
+        tags: ["pull", "strength", "hypertrophy", "full"],
+        modes: ["gym", "hybrid"],
+        equipment: ["barbell", "dumbbells", "band"],
+        muscles: ["costas", "bíceps", "postura"],
+        detail: "Tronco firme, cotovelo puxando para trás.",
+        cue: "Pense em levar o cotovelo ao bolso.",
+        linkQuery: "remada curvada execução correta",
+        riskTags: ["lower_back"],
+    },
+    {
+        id: "lat_pulldown",
+        name: "Puxada alta",
+        tags: ["pull", "strength", "hypertrophy", "full"],
+        modes: ["gym"],
+        equipment: ["machines"],
+        muscles: ["costas", "bíceps"],
+        detail: "Puxe a barra até a parte superior do peito sem roubar.",
+        cue: "Escápulas encaixadas e tronco estável.",
+        linkQuery: "puxada alta execução correta",
+        riskTags: ["shoulder"],
+    },
+    {
+        id: "romanian_deadlift",
+        name: "Terra romeno",
+        tags: ["lower", "strength", "hypertrophy", "full"],
+        modes: ["gym", "hybrid"],
+        equipment: ["barbell", "dumbbells"],
+        muscles: ["posterior de coxa", "glúteos", "lombar"],
+        detail: "Hinge de quadril com barra perto do corpo.",
+        cue: "Sinta alongar a cadeia posterior.",
+        linkQuery: "terra romeno execução correta",
+        riskTags: ["lower_back"],
+    },
+    {
+        id: "leg_press",
+        name: "Leg press",
+        tags: ["legs", "strength", "hypertrophy", "full"],
+        modes: ["gym"],
+        equipment: ["machines"],
+        muscles: ["quadríceps", "glúteos"],
+        detail: "Controle a amplitude sem perder a lombar no encosto.",
+        cue: "Desça devagar e suba forte.",
+        linkQuery: "leg press execução correta",
+        riskTags: ["knee", "lower_back"],
+    },
+    {
+        id: "military_press",
+        name: "Desenvolvimento militar",
+        tags: ["push", "strength", "hypertrophy", "full"],
+        modes: ["gym", "hybrid"],
+        equipment: ["dumbbells", "barbell"],
+        muscles: ["ombros", "tríceps", "core"],
+        detail: "Empurre acima da cabeça com o core travado.",
+        cue: "Evite compensar com a lombar.",
+        linkQuery: "desenvolvimento militar execução correta",
+        riskTags: ["shoulder", "lower_back"],
+    },
+    {
+        id: "calf_raise",
+        name: "Elevação de panturrilha",
+        tags: ["legs", "hypertrophy", "full"],
+        modes: ["home", "gym", "hybrid"],
+        equipment: ["none", "dumbbells", "machines"],
+        muscles: ["panturrilhas"],
+        detail: "Amplitude máxima com pausa no topo.",
+        cue: "Desça devagar, suba completo.",
+        linkQuery: "elevação de panturrilha execução correta",
+        riskTags: ["ankle"],
+    },
+    {
+        id: "burpee",
+        name: "Burpee",
+        tags: ["conditioning", "hiit", "full"],
+        modes: ["home", "gym", "hybrid"],
+        equipment: ["none"],
+        muscles: ["corpo inteiro"],
+        detail: "Explosivo e metabólico para queima e potência.",
+        cue: "Ajuste o impacto se o corpo pedir.",
+        linkQuery: "burpee execução correta",
+        riskTags: ["knee", "ankle", "shoulder"],
+    },
+    {
+        id: "mountain_climber",
+        name: "Mountain climber",
+        tags: ["conditioning", "hiit", "core", "full"],
+        modes: ["home", "gym", "hybrid"],
+        equipment: ["none"],
+        muscles: ["core", "cardio"],
+        detail: "Ritmo alto com tronco firme e ombros estáveis.",
+        cue: "Mantenha a prancha sem balançar.",
+        linkQuery: "mountain climber execução correta",
+        riskTags: ["wrist"],
+    },
+    {
+        id: "jumping_jack",
+        name: "Jumping jack",
+        tags: ["conditioning", "hiit", "cardio"],
+        modes: ["home", "gym", "hybrid"],
+        equipment: ["none"],
+        muscles: ["condicionamento"],
+        detail: "Clássico para aquecer e subir a frequência cardíaca.",
+        cue: "Troque por versão sem salto se precisar.",
+        linkQuery: "jumping jack execução correta",
+        riskTags: ["knee", "ankle"],
+    },
+    {
+        id: "high_knees",
+        name: "Joelhos altos",
+        tags: ["conditioning", "running", "cardio", "hiit"],
+        modes: ["home", "gym", "hybrid"],
+        equipment: ["none"],
+        muscles: ["cardio", "coordenação"],
+        detail: "Suba os joelhos com cadência e tronco firme.",
+        cue: "Ótimo para HIIT ou aquecimento.",
+        linkQuery: "joelhos altos execução correta",
+        riskTags: ["knee", "ankle"],
+    },
+    {
+        id: "shadow_boxing",
+        name: "Boxe sombra",
+        tags: ["conditioning", "cardio", "full"],
+        modes: ["home", "gym", "hybrid"],
+        equipment: ["none"],
+        muscles: ["cardio", "coordenação", "ombros"],
+        detail: "Movimento fluido para condicionamento sem impacto.",
+        cue: "Excelente para intervalo e foco mental.",
+        linkQuery: "shadow boxing treino execução",
+        riskTags: ["shoulder", "wrist"],
+    },
+    {
+        id: "run_easy",
+        name: "Corrida leve",
+        tags: ["running", "cardio", "endurance"],
+        modes: ["home", "gym", "hybrid"],
+        equipment: ["none", "bike"],
+        muscles: ["cardio", "pernas"],
+        detail: "Ritmo conversável para construir base aeróbica.",
+        cue: "Respiração controlada e cadência estável.",
+        linkQuery: "corrida leve técnica",
+        riskTags: ["knee", "ankle"],
+    },
+    {
+        id: "run_intervals",
+        name: "Intervalos de corrida",
+        tags: ["running", "conditioning", "hiit", "cardio"],
+        modes: ["home", "gym", "hybrid"],
+        equipment: ["none", "bike"],
+        muscles: ["cardio", "potência"],
+        detail: "Blocos intensos com recuperação curta.",
+        cue: "Perfeito para perda de gordura e performance.",
+        linkQuery: "treino intervalado corrida",
+        riskTags: ["knee", "ankle"],
+    },
+    {
+        id: "brisk_walk",
+        name: "Caminhada acelerada",
+        tags: ["walking", "cardio", "recovery", "endurance"],
+        modes: ["home", "gym", "hybrid"],
+        equipment: ["none"],
+        muscles: ["cardio", "recuperação"],
+        detail: "Zona 2 simples, eficiente e sustentável.",
+        cue: "Base perfeita para consistência semanal.",
+        linkQuery: "caminhada acelerada benefícios",
+        riskTags: ["knee", "ankle"],
+    },
+    {
+        id: "bike",
+        name: "Bike ergométrica",
+        tags: ["cardio", "endurance", "recovery", "conditioning"],
+        modes: ["gym", "hybrid"],
+        equipment: ["bike"],
+        muscles: ["cardio", "pernas"],
+        detail: "Baixo impacto com controle de intensidade.",
+        cue: "Use para zona 2 ou HIIT.",
+        linkQuery: "bike ergométrica treino",
+        riskTags: ["knee"],
+    },
+    {
+        id: "cat_cow",
+        name: "Cat-cow",
+        tags: ["mobility", "core", "full"],
+        modes: ["home", "gym", "hybrid"],
+        equipment: ["none"],
+        muscles: ["coluna"],
+        detail: "Flexão e extensão de coluna com respiração.",
+        cue: "Excelente para iniciar ou finalizar o treino.",
+        linkQuery: "cat cow execução correta",
+        riskTags: ["lower_back"],
+    },
+    {
+        id: "thoracic_rotation",
+        name: "Rotação torácica",
+        tags: ["mobility", "core", "full"],
+        modes: ["home", "gym", "hybrid"],
+        equipment: ["none"],
+        muscles: ["coluna torácica"],
+        detail: "Libera a região torácica e melhora postura.",
+        cue: "Abra o peito sem compensar na lombar.",
+        linkQuery: "rotação torácica exercício",
+        riskTags: [],
+    },
+    {
+        id: "hip_opener",
+        name: "Abertura de quadril",
+        tags: ["mobility", "lower", "full"],
+        modes: ["home", "gym", "hybrid"],
+        equipment: ["none"],
+        muscles: ["quadril", "glúteos"],
+        detail: "Mobilidade de quadril para agachar e correr melhor.",
+        cue: "Respire fundo e não force a amplitude.",
+        linkQuery: "abertura de quadril mobilidade",
+        riskTags: [],
+    },
+];
+
+const els = {
+    appShell: document.getElementById("appShell"),
+    coachForm: document.getElementById("coachForm"),
+    generateBtn: document.getElementById("generateBtn"),
+    demoBtn: document.getElementById("demoBtn"),
+    resetBtn: document.getElementById("resetBtn"),
+    planSummary: document.getElementById("planSummary"),
+    planContainer: document.getElementById("planContainer"),
+    weekSwitch: document.getElementById("weekSwitch"),
+    calendarInfo: document.getElementById("calendarInfo"),
+    calendarGrid: document.getElementById("calendarGrid"),
+    alertsPanel: document.getElementById("alertsPanel"),
+    libraryGrid: document.getElementById("libraryGrid"),
+    toast: document.getElementById("toast"),
+    dayDialog: document.getElementById("dayDialog"),
+    dialogTag: document.getElementById("dialogTag"),
+    dialogTitle: document.getElementById("dialogTitle"),
+    dialogSummary: document.getElementById("dialogSummary"),
+    dialogContent: document.getElementById("dialogContent"),
+    streakValue: document.getElementById("streakValue"),
+    completionValue: document.getElementById("completionValue"),
+    planValue: document.getElementById("planValue"),
+    lastWorkoutValue: document.getElementById("lastWorkoutValue"),
+    heroSignal: document.getElementById("heroSignal"),
+    nextWorkoutValue: document.getElementById("nextWorkoutValue"),
+    modeValue: document.getElementById("modeValue"),
+    planMetaValue: document.getElementById("planMetaValue"),
+    calendarValue: document.getElementById("calendarValue"),
+    libraryCountValue: document.getElementById("libraryCountValue"),
+};
+
+const state = {
+    profile: loadStoredProfile(),
+    plan: loadStoredPlan(),
+    checkins: loadStoredCheckins(),
+    selectedWeek: 0,
+};
+
+function safeParse(value, fallback) {
+    try {
+        return value ? JSON.parse(value) : fallback;
+    } catch {
+        return fallback;
+    }
+}
+
+function storageRead(key, fallback) {
+    try {
+        return safeParse(localStorage.getItem(key), fallback);
+    } catch {
+        return fallback;
+    }
+}
+
+function storageWrite(key, value) {
+    try {
+        localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+        // localStorage unavailable
+    }
+}
+
+function storageRemove(key) {
+    try {
+        localStorage.removeItem(key);
+    } catch {
+        // ignore
+    }
+}
+
+function createDefaultProfile() {
+    return {
+        ...DEFAULT_PROFILE,
+        equipment: [...DEFAULT_PROFILE.equipment],
+        focus: [...DEFAULT_PROFILE.focus],
+    };
+}
+
+function loadStoredProfile() {
+    return { ...createDefaultProfile(), ...storageRead(STORAGE_KEY, {}).profile };
+}
+
+function loadStoredPlan() {
+    return storageRead(STORAGE_KEY, {}).plan || null;
+}
+
+function loadStoredCheckins() {
+    return storageRead(STORAGE_KEY, {}).checkins || {};
+}
+
+function saveState() {
+    storageWrite(STORAGE_KEY, {
+        profile: state.profile,
+        plan: state.plan,
+        checkins: state.checkins,
+        selectedWeek: state.selectedWeek,
+    });
 }
 
 function toTitleCase(value) {
-  return String(value)
-    .replace(/[_-]/g, " ")
-    .split(" ")
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+    return String(value)
+        .replace(/[_-]/g, " ")
+        .split(" ")
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ");
 }
 
-function formatDate(date) {
-  return date.toLocaleDateString("pt-BR", {
-    weekday: "short",
-    day: "2-digit",
-    month: "short",
-  });
+function normalizeText(value) {
+    return String(value || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
 }
 
-function formatDayNumber(date) {
-  return date.getDate().toString().padStart(2, "0");
+function unique(values) {
+    return [...new Set(values)];
 }
 
-function formatMonthYear(date) {
-  return date.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+}
+
+function pad(value) {
+    return String(value).padStart(2, "0");
+}
+
+function dateKey(date) {
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function dateFromKey(key) {
+    const [year, month, day] = key.split("-").map(Number);
+    return new Date(year, month - 1, day);
 }
 
 function addDays(date, amount) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + amount);
-  return next;
+    const next = new Date(date);
+    next.setDate(next.getDate() + amount);
+    return next;
 }
 
 function startOfWeek(date) {
-  const next = new Date(date);
-  const diff = (next.getDay() + 6) % 7;
-  next.setDate(next.getDate() - diff);
-  next.setHours(0, 0, 0, 0);
-  return next;
+    const copy = new Date(date);
+    const diff = (copy.getDay() + 6) % 7;
+    copy.setDate(copy.getDate() - diff);
+    copy.setHours(0, 0, 0, 0);
+    return copy;
 }
 
 function startOfMonth(date) {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
+    return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
 function endOfMonth(date) {
-  return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0);
 }
 
-function sameDay(a, b) {
-  return a.toDateString() === b.toDateString();
+function formatDateLabel(date, options = {}) {
+    const hasCustomOptions = Object.keys(options).length > 0;
+    const formatOptions = hasCustomOptions ? {} : { weekday: "short", day: "2-digit", month: "short" };
+    if ("weekday" in options) formatOptions.weekday = options.weekday;
+    if ("day" in options) formatOptions.day = options.day;
+    if ("month" in options) formatOptions.month = options.month;
+    if ("year" in options) formatOptions.year = options.year;
+    return date.toLocaleDateString("pt-BR", formatOptions);
 }
 
-function slugify(value) {
-  return String(value)
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "+")
-    .replace(/(^\+|\+$)/g, "");
-}
-
-function youtubeSearchUrl(exerciseName) {
-  return `https://www.youtube.com/results?search_query=${encodeURIComponent(
-    `como executar ${exerciseName} corretamente`
-  )}`;
-}
-
-function numberFromSelect(value) {
-  return Number.parseInt(value, 10) || 0;
-}
-
-function unique(array) {
-  return [...new Set(array)];
+function formatMonthLabel(date) {
+    return date.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 }
 
 function showToast(message, tone = "success") {
-  if (!els.toast) return;
-  els.toast.textContent = message;
-  els.toast.dataset.tone = tone;
-  els.toast.classList.add("is-visible");
-
-  window.clearTimeout(showToast.timer);
-  showToast.timer = window.setTimeout(() => {
-    els.toast.classList.remove("is-visible");
-  }, 2600);
+    if (!els.toast) return;
+    els.toast.textContent = message;
+    els.toast.dataset.tone = tone;
+    els.toast.classList.add("is-visible");
+    window.clearTimeout(showToast.timer);
+    showToast.timer = window.setTimeout(() => {
+        els.toast.classList.remove("is-visible");
+    }, 2600);
 }
 
 function scrollToPlan() {
-  const target = document.querySelector(".plan-panel");
-  if (target) {
-    target.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-}
-
-function readFormProfile() {
-  const form = new FormData(els.coachForm);
-  const equipment = form.getAll("equipment");
-  const focus = form.getAll("focus");
-
-  return {
-    name: String(form.get("name") || "").trim(),
-    age: numberFromSelect(form.get("age")),
-    goal: String(form.get("goal") || "emagrecimento"),
-    horizon: String(form.get("horizon") || "weekly"),
-    location: String(form.get("location") || "home"),
-    level: String(form.get("level") || "beginner"),
-    daysPerWeek: numberFromSelect(form.get("daysPerWeek")) || 5,
-    sessionTime: numberFromSelect(form.get("sessionTime")) || 45,
-    cardioStyle: String(form.get("cardioStyle") || "mixed"),
-    intensity: String(form.get("intensity") || "high"),
-    equipment: equipment.length ? equipment : ["none"],
-    focus: focus.length ? focus : ["strength", "hypertrophy"],
-    restrictions: String(form.get("restrictions") || "").trim(),
-    preferences: String(form.get("preferences") || "").trim(),
-  };
+    document.querySelector(".plan-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function writeProfileToForm(profile) {
-  const values = profile || getDefaultProfile();
-  Object.entries(values).forEach(([key, value]) => {
-    const field = els.coachForm.elements.namedItem(key);
-    if (!field) return;
-    if (field instanceof RadioNodeList) return;
-    if (field.type === "checkbox") return;
-    field.value = value;
-  });
-
-  const equipmentInputs = [...els.coachForm.querySelectorAll('input[name="equipment"]')];
-  equipmentInputs.forEach((input) => {
-    input.checked = values.equipment?.includes(input.value) || false;
-  });
-
-  const focusInputs = [...els.coachForm.querySelectorAll('input[name="focus"]')];
-  focusInputs.forEach((input) => {
-    input.checked = values.focus?.includes(input.value) || false;
-  });
-}
-
-function levelSettings(level) {
-  if (level === "advanced") {
-    return { sets: 5, reps: "6-10", rest: 75, tempo: "3-1-1", rpe: 8.5, volume: 1.1 };
-  }
-
-  if (level === "intermediate") {
-    return { sets: 4, reps: "8-12", rest: 90, tempo: "2-1-1", rpe: 8, volume: 1 };
-  }
-
-  return { sets: 3, reps: "10-15", rest: 105, tempo: "2-0-2", rpe: 7, volume: 0.85 };
-}
-
-function resolveWorkoutPrescription(profile, type) {
-  const base = levelSettings(profile.level);
-  const prescription = { ...base };
-
-  if (profile.goal === "forca") {
-    Object.assign(prescription, { sets: 5, reps: "4-6", rest: 120, tempo: "3-1-1", rpe: 8.5 });
-  } else if (profile.goal === "hipertrofia") {
-    Object.assign(prescription, { sets: 4, reps: "8-12", rest: 75, tempo: "2-1-1", rpe: 8 });
-  } else if (profile.goal === "emagrecimento") {
-    Object.assign(prescription, { sets: 3, reps: "12-15", rest: 45, tempo: "2-0-2", rpe: 8 });
-  } else if (profile.goal === "resistencia") {
-    Object.assign(prescription, { sets: 3, reps: "15-20", rest: 30, tempo: "2-0-1", rpe: 7.5 });
-  } else if (profile.goal === "corrida") {
-    Object.assign(prescription, { sets: 2, reps: "20-40 min", rest: 0, tempo: "zona 2", rpe: 6.5 });
-  } else if (profile.goal === "caminhada") {
-    Object.assign(prescription, { sets: 1, reps: "30-50 min", rest: 0, tempo: "zona 2", rpe: 4.5 });
-  } else if (profile.goal === "mobilidade") {
-    Object.assign(prescription, { sets: 2, reps: "8-10 por lado", rest: 20, tempo: "controlado", rpe: 5.5 });
-  }
-
-  if (type === "conditioning" || type === "intervals") {
-    Object.assign(prescription, {
-      sets: profile.sessionTime <= 30 ? 3 : 4,
-      reps: type === "intervals" ? "30s forte / 30s leve" : "40s forte / 20s leve",
-      rest: 20,
-      tempo: "explosivo",
-      rpe: 8.8,
-    });
-  }
-
-  if (type === "mobility") {
-    Object.assign(prescription, {
-      sets: 2,
-      reps: "8-12 por lado",
-      rest: 15,
-      tempo: "controlado",
-      rpe: 5,
-    });
-  }
-
-  if (type === "run") {
-    Object.assign(prescription, {
-      sets: 1,
-      reps: profile.cardioStyle === "hiit" ? "8-12 tiros" : profile.sessionTime >= 45 ? "30-45 min" : "20-30 min",
-      rest: profile.cardioStyle === "hiit" ? 45 : 0,
-      tempo: profile.cardioStyle === "hiit" ? "intervalado" : "zona 2",
-      rpe: profile.cardioStyle === "hiit" ? 8.5 : 6.5,
-    });
-  }
-
-  if (type === "walk") {
-    Object.assign(prescription, {
-      sets: 1,
-      reps: profile.sessionTime >= 45 ? "40-60 min" : "25-40 min",
-      rest: 0,
-      tempo: "zona 2",
-      rpe: 4.5,
-    });
-  }
-
-  if (type === "core") {
-    Object.assign(prescription, {
-      sets: 3,
-      reps: "30-45s",
-      rest: 20,
-      tempo: "estável",
-      rpe: 6.5,
-    });
-  }
-
-  return prescription;
-}
-
-function goalTone(goal) {
-  switch (goal) {
-    case "emagrecimento":
-      return "Foco em gasto calórico, densidade de treino e cardio inteligente.";
-    case "hipertrofia":
-      return "Volume alto, controle de execução e progressão de carga semanal.";
-    case "forca":
-      return "Baixas repetições, maior descanso e padrões compostos prioritários.";
-    case "resistencia":
-      return "Construção aeróbica, tolerância ao volume e blocos contínuos.";
-    case "corrida":
-      return "Progressão de base, técnica de corrida e controle de intensidade.";
-    case "caminhada":
-      return "Zona 2, consistência diária e recuperação ativa entre sessões.";
-    case "mobilidade":
-      return "Controle articular, liberação de rigidez e estabilidade de tronco.";
-    default:
-      return "Treino híbrido com força, condicionamento e mobilidade.";
-  }
-}
-
-function planLabel(profile) {
-  const horizon = profile.horizon === "monthly" ? "mensal" : "semanal";
-  return `${toTitleCase(profile.goal)} · ${horizon}`;
-}
-
-function isExerciseAllowed(exercise, profile) {
-  if (profile.location === "home" && !exercise.modes.includes("home") && !exercise.modes.includes("hybrid")) {
-    return false;
-  }
-
-  if (profile.location === "gym" && !exercise.modes.includes("gym") && !exercise.modes.includes("hybrid")) {
-    return false;
-  }
-
-  const hasEquipment = new Set(profile.equipment || []);
-  const equipmentOk = exercise.equipment.some((equipment) => hasEquipment.has(equipment) || hasEquipment.has("none"));
-  if (!equipmentOk && !exercise.equipment.includes("none")) {
-    return false;
-  }
-
-  const restrictions = String(profile.restrictions || "").toLowerCase();
-  const tags = exercise.riskTags || [];
-
-  if (restrictions.includes("joelho") && tags.some((tag) => ["knee", "ankle", "jump"].includes(tag))) return false;
-  if (restrictions.includes("ombro") && tags.includes("shoulder")) return false;
-  if (restrictions.includes("lombar") && tags.includes("lower_back")) return false;
-  if (restrictions.includes("tornozelo") && tags.some((tag) => ["ankle", "jump"].includes(tag))) return false;
-
-  return true;
-}
-
-function filterExercises(profile, tags = []) {
-  return exerciseLibrary.filter((exercise) => {
-    if (!isExerciseAllowed(exercise, profile)) return false;
-
-    const include = tags.length === 0 || tags.some((tag) => exercise.focus.includes(tag));
-    return include;
-  });
-}
-
-function pickMany(list, count, offset = 0) {
-  if (!list.length) return [];
-  const chosen = [];
-  for (let index = 0; index < Math.min(count, list.length); index += 1) {
-    chosen.push(list[(index + offset) % list.length]);
-  }
-  return chosen;
-}
-
-function buildActiveSessionTypes(profile) {
-  const goal = profile.goal;
-  const days = profile.daysPerWeek;
-
-  if (goal === "mobilidade") {
-    return Array.from({ length: days }, (_, index) => (index % 2 === 0 ? "mobility" : "core"));
-  }
-
-  if (goal === "corrida") {
-    if (days >= 6) return ["run", "strength", "intervals", "run", "mobility", "walk"];
-    if (days === 5) return ["run", "strength", "intervals", "run", "mobility"];
-    if (days === 4) return ["run", "strength", "intervals", "mobility"];
-    return ["run", "strength", "run"];
-  }
-
-  if (goal === "caminhada") {
-    if (days >= 6) return ["walk", "strength", "walk", "mobility", "walk", "strength"];
-    if (days === 5) return ["walk", "strength", "walk", "mobility", "walk"];
-    if (days === 4) return ["walk", "strength", "walk", "mobility"];
-    return ["walk", "strength", "walk"];
-  }
-
-  if (goal === "forca") {
-    if (days >= 6) return ["lower", "push", "pull", "lower", "upper", "full"];
-    if (days === 5) return ["lower", "push", "pull", "lower", "upper"];
-    if (days === 4) return ["lower", "push", "pull", "lower"];
-    return ["full", "lower", "upper"];
-  }
-
-  if (goal === "hipertrofia") {
-    if (days >= 6) return ["push", "pull", "legs", "upper", "lower", "conditioning"];
-    if (days === 5) return ["push", "pull", "legs", "upper", "lower"];
-    if (days === 4) return ["push", "pull", "legs", "upper"];
-    return ["full", "upper", "lower"];
-  }
-
-  if (goal === "emagrecimento") {
-    if (days >= 6) return ["full", "conditioning", "lower", "upper", "intervals", "mobility"];
-    if (days === 5) return ["full", "conditioning", "lower", "upper", "intervals"];
-    if (days === 4) return ["full", "conditioning", "lower", "mobility"];
-    return ["full", "conditioning", "full"];
-  }
-
-  if (goal === "resistencia") {
-    if (days >= 6) return ["conditioning", "run", "strength", "conditioning", "walk", "mobility"];
-    if (days === 5) return ["conditioning", "run", "strength", "conditioning", "mobility"];
-    if (days === 4) return ["conditioning", "run", "strength", "mobility"];
-    return ["conditioning", "run", "strength"];
-  }
-
-  if (days <= 3) return ["full", "full", "conditioning"];
-  if (days === 4) return ["upper", "lower", "conditioning", "upper"];
-  if (days === 5) return ["push", "pull", "legs", "conditioning", "upper"];
-  if (days === 6) return ["push", "pull", "legs", "conditioning", "upper", "lower"];
-  return ["push", "pull", "legs", "conditioning", "upper", "lower", "mobility"];
-}
-
-function dayPatternForIndex(profile, index) {
-  const types = buildActiveSessionTypes(profile);
-  const activeDays = [];
-  const daysPerWeek = Math.max(1, Math.min(7, profile.daysPerWeek));
-
-  if (daysPerWeek === 3) activeDays.push(1, 3, 5);
-  else if (daysPerWeek === 4) activeDays.push(1, 2, 4, 6);
-  else if (daysPerWeek === 5) activeDays.push(1, 2, 3, 5, 6);
-  else if (daysPerWeek === 6) activeDays.push(1, 2, 3, 4, 5, 6);
-  else activeDays.push(0, 1, 2, 3, 4, 5, 6);
-
-  const weekday = index % 7;
-  const activeIndex = activeDays.indexOf(weekday);
-
-  if (activeIndex === -1) {
-    return { type: "recovery", label: "Recuperação ativa", intensity: "leve" };
-  }
-
-  const type = types[activeIndex % types.length] || "full";
-  return { type, label: toTitleCase(type), intensity: "treino" };
-}
-
-function buildWorkoutBlock(profile, type, weekIndex, dayIndex) {
-  const prescription = resolveWorkoutPrescription(profile, type);
-  const focusTags = {
-    push: ["push"],
-    pull: ["pull"],
-    legs: ["legs"],
-    upper: ["push", "pull"],
-    lower: ["legs"],
-    full: ["push", "pull", "legs", "core", "cardio"],
-    conditioning: ["cardio", "hiit", "full"],
-    mobility: ["mobility", "full"],
-    core: ["core", "mobility"],
-    run: ["running", "cardio", "endurance"],
-    walk: ["walking", "cardio", "recovery"],
-    intervals: ["hiit", "cardio"],
-  };
-
-  let pool = filterExercises(profile, focusTags[type] || ["full"]);
-  if (!pool.length && type === "pull" && profile.location === "home") {
-    pool = filterExercises(profile, ["pull", "core", "mobility", "full"]);
-  }
-  if (!pool.length) {
-    pool = filterExercises(profile, ["full", "core", "mobility", "cardio"]);
-  }
-  if (!pool.length) {
-    pool = exerciseLibrary.filter((exercise) => isExerciseAllowed(exercise, profile));
-  }
-  const setsMultiplier = 1 + weekIndex * 0.08;
-  const shuffledOffset = (weekIndex * 3 + dayIndex * 2) % Math.max(1, pool.length);
-  const exerciseCount = profile.sessionTime <= 25 ? 3 : profile.sessionTime <= 40 ? 4 : 5;
-  const selected = pickMany(pool, type === "conditioning" || type === "mobility" || type === "run" || type === "walk" ? 3 : exerciseCount, shuffledOffset);
-  const intensityBoost = profile.intensity === "very_high" ? 1.1 : profile.intensity === "high" ? 1 : 0.92;
-
-  const warmup = [
-    "Mobilidade articular por 3 min",
-    "Respiração nasal e ativação do core",
-    "Série leve do primeiro exercício",
-  ];
-
-  const blocks = selected.map((exercise, exerciseIndex) => {
-    const baseSets = prescription.sets;
-    const adaptiveSets = Math.max(2, Math.round(baseSets * setsMultiplier * intensityBoost));
-    let reps = prescription.reps;
-    let rest = prescription.rest;
-    let tempo = prescription.tempo;
-    let note = exercise.detail;
-
-    if (type === "conditioning" || exercise.focus.includes("cardio") || exercise.focus.includes("hiit")) {
-      reps = prescription.reps;
-      rest = prescription.rest;
-      tempo = prescription.tempo;
+    const data = { ...createDefaultProfile(), ...profile };
+    for (const [key, value] of Object.entries(data)) {
+        const field = els.coachForm.elements.namedItem(key);
+        if (!field) continue;
+        if (field instanceof RadioNodeList) continue;
+        if (field.type === "checkbox") continue;
+        field.value = value;
     }
 
-    if (type === "mobility") {
-      reps = prescription.reps;
-      rest = prescription.rest;
-      tempo = prescription.tempo;
+    [...els.coachForm.querySelectorAll('input[name="equipment"]')].forEach((input) => {
+        input.checked = data.equipment.includes(input.value);
+    });
+
+    [...els.coachForm.querySelectorAll('input[name="focus"]')].forEach((input) => {
+        input.checked = data.focus.includes(input.value);
+    });
+}
+
+function readProfileFromForm() {
+    const form = new FormData(els.coachForm);
+    const equipment = form.getAll("equipment");
+    const focus = form.getAll("focus");
+    const normalizedEquipment = equipment.includes("none") && equipment.length > 1 ? equipment.filter((item) => item !== "none") : equipment;
+    return {
+        name: String(form.get("name") || "").trim(),
+        age: clamp(Number.parseInt(form.get("age"), 10) || 30, 12, 90),
+        goal: String(form.get("goal") || "misto"),
+        horizon: String(form.get("horizon") || "weekly"),
+        location: String(form.get("location") || "home"),
+        level: String(form.get("level") || "beginner"),
+        daysPerWeek: clamp(Number.parseInt(form.get("daysPerWeek"), 10) || 5, 3, 7),
+        sessionTime: clamp(Number.parseInt(form.get("sessionTime"), 10) || 45, 20, 90),
+        cardioStyle: String(form.get("cardioStyle") || "mixed"),
+        intensity: String(form.get("intensity") || "high"),
+        equipment: normalizedEquipment.length ? normalizedEquipment : ["none"],
+        focus: focus.length ? focus : ["strength", "hypertrophy", "cardio"],
+        restrictions: String(form.get("restrictions") || "").trim(),
+        preferences: String(form.get("preferences") || "").trim(),
+    };
+}
+
+function bindEquipmentExclusivity() {
+    els.coachForm.addEventListener("change", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement) || target.name !== "equipment") return;
+        const noneInput = els.coachForm.querySelector('input[name="equipment"][value="none"]');
+        const otherInputs = [...els.coachForm.querySelectorAll('input[name="equipment"]')].filter((input) => input.value !== "none");
+
+        if (target.value === "none" && target.checked) {
+            otherInputs.forEach((input) => {
+                input.checked = false;
+            });
+        }
+
+        if (target.value !== "none" && target.checked && noneInput) {
+            noneInput.checked = false;
+        }
+
+        if (otherInputs.every((input) => !input.checked) && noneInput) {
+            noneInput.checked = true;
+        }
+    });
+}
+
+function activeWeekdays(daysPerWeek) {
+    return ACTIVE_WEEKDAYS[daysPerWeek] || ACTIVE_WEEKDAYS[5];
+}
+
+function rotatedSequence(goal, weekIndex) {
+    const sequence = GOAL_SEQUENCES[goal] || GOAL_SEQUENCES.misto;
+    const offset = weekIndex % sequence.length;
+    return [...sequence.slice(offset), ...sequence.slice(0, offset)];
+}
+
+function matchScore(exercise, profile, sessionType) {
+    const tags = SESSION_TAGS[sessionType] || SESSION_TAGS.full;
+    const preferenceText = normalizeText([profile.goal, profile.preferences, profile.focus.join(" ")].join(" "));
+    const restrictionText = normalizeText(profile.restrictions);
+    const exerciseText = normalizeText([exercise.name, exercise.detail, exercise.cue, exercise.muscles.join(" "), exercise.tags.join(" ")].join(" "));
+
+    let score = 0;
+    const hasLocation = profile.location === "hybrid" || exercise.modes.includes(profile.location) || exercise.modes.includes("hybrid");
+    if (!hasLocation) return -1000;
+
+    if (exercise.equipment.includes("none") || exercise.equipment.some((item) => profile.equipment.includes(item))) {
+        score += 5;
+    } else {
+        return -1000;
     }
 
-    if (type === "run") {
-      reps = prescription.reps;
-      rest = prescription.rest;
-      tempo = prescription.tempo;
-      note = "Mantenha um ritmo conversável e monitore a respiração.";
+    tags.forEach((tag) => {
+        if (exercise.tags.includes(tag)) score += 6;
+    });
+
+    if (sessionType === "full" && exercise.tags.includes("full")) score += 4;
+    if (sessionType === "lower" && exercise.tags.some((tag) => ["legs", "posterior", "glutes", "lower"].includes(tag))) score += 4;
+    if (sessionType === "upper" && exercise.tags.some((tag) => ["push", "pull"].includes(tag))) score += 4;
+    if (sessionType === "run" && exercise.tags.includes("running")) score += 6;
+    if (sessionType === "walk" && exercise.tags.includes("walking")) score += 6;
+    if (sessionType === "conditioning" && exercise.tags.includes("conditioning")) score += 6;
+    if (sessionType === "intervals" && exercise.tags.includes("hiit")) score += 6;
+    if (sessionType === "mobility" && exercise.tags.includes("mobility")) score += 6;
+    if (sessionType === "core" && exercise.tags.includes("core")) score += 5;
+
+    if (preferenceText.includes("glute") && exerciseText.includes("glut")) score += 4;
+    if (preferenceText.includes("perna") && exerciseText.includes("leg")) score += 3;
+    if (preferenceText.includes("peito") && exerciseText.includes("peito")) score += 3;
+    if (preferenceText.includes("costas") && exerciseText.includes("costas")) score += 3;
+    if (preferenceText.includes("core") && exerciseText.includes("core")) score += 3;
+    if (preferenceText.includes("cardio") && exerciseText.includes("cardio")) score += 3;
+
+    if (restrictionText.includes("joelho") && exercise.riskTags.includes("knee")) score -= 10;
+    if (restrictionText.includes("ombro") && exercise.riskTags.includes("shoulder")) score -= 10;
+    if (restrictionText.includes("lombar") && exercise.riskTags.includes("lower_back")) score -= 10;
+    if (restrictionText.includes("tornozelo") && exercise.riskTags.includes("ankle")) score -= 10;
+    if (restrictionText.includes("punho") && exercise.riskTags.includes("wrist")) score -= 10;
+
+    if (profile.goal === "corrida" && exercise.tags.includes("running")) score += 4;
+    if (profile.goal === "caminhada" && exercise.tags.includes("walking")) score += 4;
+    if (profile.goal === "hipertrofia" && exercise.tags.includes("hypertrophy")) score += 4;
+    if (profile.goal === "forca" && exercise.tags.includes("strength")) score += 4;
+    if (profile.goal === "emagrecimento" && exercise.tags.includes("conditioning")) score += 4;
+    if (profile.goal === "mobilidade" && exercise.tags.includes("mobility")) score += 4;
+
+    return score;
+}
+
+function pickExercises(profile, sessionType, count, weekIndex, dayIndex) {
+    const pool = exerciseLibrary
+        .map((exercise) => ({ exercise, score: matchScore(exercise, profile, sessionType) }))
+        .filter((item) => item.score > -100)
+        .sort((a, b) => b.score - a.score || a.exercise.name.localeCompare(b.exercise.name));
+
+    const offset = (weekIndex * 2 + dayIndex) % Math.max(1, pool.length);
+    const ordered = [...pool.slice(offset), ...pool.slice(0, offset)];
+    const chosen = [];
+    const seen = new Set();
+
+    for (const item of ordered) {
+        if (seen.has(item.exercise.id)) continue;
+        chosen.push(item.exercise);
+        seen.add(item.exercise.id);
+        if (chosen.length >= count) break;
     }
 
-    if (type === "walk") {
-      reps = prescription.reps;
-      rest = prescription.rest;
-      tempo = prescription.tempo;
-      note = "Caminhada vigorosa em terreno plano ou leve inclinação.";
+    if (!chosen.length) {
+        return exerciseLibrary.slice(0, count);
+    }
+
+    if (chosen.length < count) {
+        for (const item of pool) {
+            if (seen.has(item.exercise.id)) continue;
+            chosen.push(item.exercise);
+            seen.add(item.exercise.id);
+            if (chosen.length >= count) break;
+        }
+    }
+
+    return chosen;
+}
+
+function levelPreset(level) {
+    if (level === "advanced") return { sets: 5, reps: "6-10", rest: 75, tempo: "3-1-1", rpe: 8.6 };
+    if (level === "intermediate") return { sets: 4, reps: "8-12", rest: 90, tempo: "2-1-1", rpe: 7.8 };
+    return { sets: 3, reps: "10-15", rest: 105, tempo: "2-0-2", rpe: 6.8 };
+}
+
+function buildPrescription(profile, sessionType, weekIndex, totalWeeks) {
+    const level = levelPreset(profile.level);
+    const weekFactor = totalWeeks === 4 ? [0.95, 1, 1.08, 0.82][weekIndex] : 1;
+    const intensityFactor = profile.intensity === "very_high" ? 1.1 : profile.intensity === "high" ? 1 : 0.9;
+    const multiplier = weekFactor * intensityFactor;
+    const base = { ...level };
+
+    if (profile.goal === "forca") Object.assign(base, { sets: 5, reps: "4-6", rest: 120, tempo: "3-1-1", rpe: 8.8 });
+    if (profile.goal === "hipertrofia") Object.assign(base, { sets: 4, reps: "8-12", rest: 75, tempo: "2-1-1", rpe: 8.2 });
+    if (profile.goal === "emagrecimento") Object.assign(base, { sets: 3, reps: "12-15", rest: 45, tempo: "2-0-2", rpe: 8.1 });
+    if (profile.goal === "resistencia") Object.assign(base, { sets: 3, reps: "15-20", rest: 30, tempo: "2-0-1", rpe: 7.4 });
+    if (profile.goal === "corrida") Object.assign(base, { sets: 1, reps: "20-45 min", rest: 0, tempo: "ritmo controlado", rpe: 6.6 });
+    if (profile.goal === "caminhada") Object.assign(base, { sets: 1, reps: "30-60 min", rest: 0, tempo: "zona 2", rpe: 4.8 });
+    if (profile.goal === "mobilidade") Object.assign(base, { sets: 2, reps: "8-12 por lado", rest: 15, tempo: "controlado", rpe: 5.2 });
+
+    if (sessionType === "conditioning" || sessionType === "intervals") {
+        Object.assign(base, {
+            sets: profile.sessionTime <= 30 ? 3 : 4,
+            reps: sessionType === "intervals" ? "30s forte / 30s leve" : "40s forte / 20s leve",
+            rest: 20,
+            tempo: "explosivo",
+            rpe: 8.8,
+        });
+    }
+
+    if (sessionType === "mobility" || profile.goal === "mobilidade") {
+        Object.assign(base, { sets: 2, reps: "8-12 por lado", rest: 15, tempo: "fluido", rpe: 5.0 });
+    }
+
+    if (sessionType === "run") {
+        Object.assign(base, {
+            sets: 1,
+            reps: profile.cardioStyle === "hiit" ? "6-10 tiros" : profile.sessionTime >= 45 ? "30-45 min" : "20-30 min",
+            rest: profile.cardioStyle === "hiit" ? 45 : 0,
+            tempo: profile.cardioStyle === "hiit" ? "intervalado" : "zona 2",
+            rpe: profile.cardioStyle === "hiit" ? 8.4 : 6.2,
+        });
+    }
+
+    if (sessionType === "walk") {
+        Object.assign(base, {
+            sets: 1,
+            reps: profile.sessionTime >= 45 ? "40-60 min" : "25-40 min",
+            rest: 0,
+            tempo: "zona 2",
+            rpe: 4.6,
+        });
+    }
+
+    if (sessionType === "core") {
+        Object.assign(base, { sets: 3, reps: "30-45s", rest: 20, tempo: "estável", rpe: 6.2 });
+    }
+
+    const adjustedSets = sessionType === "run" || sessionType === "walk" ? 1 : Math.max(2, Math.round(base.sets * multiplier));
+    const adjustedRest = sessionType === "run" || sessionType === "walk" ? base.rest : Math.max(10, Math.round(base.rest / Math.max(0.85, multiplier)));
+
+    return {
+        sets: adjustedSets,
+        reps: base.reps,
+        rest: adjustedRest,
+        tempo: base.tempo,
+        rpe: base.rpe,
+    };
+}
+
+function buildWarmup(sessionType, profile) {
+    if (sessionType === "run" || sessionType === "walk") {
+        return [
+            "3 min de mobilidade articular e marcha",
+            "Ativação de tornozelo e quadril",
+            "2 acelerações leves antes do bloco principal",
+        ];
+    }
+
+    if (sessionType === "mobility") {
+        return [
+            "Respiração nasal por 1 min",
+            "Cat-cow e rotação torácica",
+            "Abertura dinâmica de quadril",
+        ];
+    }
+
+    return [
+        "Mobilidade articular de 3 min",
+        "Ativação do core e escápulas",
+        "Série de adaptação do primeiro exercício",
+    ];
+}
+
+function buildCooldown(sessionType) {
+    if (sessionType === "run" || sessionType === "walk") {
+        return [
+            "5 min de desaceleração",
+            "Alongamento leve de panturrilha e quadril",
+            "Respiração para baixar a frequência cardíaca",
+        ];
+    }
+
+    if (sessionType === "mobility") {
+        return [
+            "Respiração profunda por 2 min",
+            "Posição de descanso com coluna neutra",
+            "Mobilidade leve extra se o corpo pedir",
+        ];
+    }
+
+    return [
+        "Respiração de recuperação por 2 min",
+        "Alongamento leve do grupo mais usado",
+        "Hidratação e relaxamento ativo",
+    ];
+}
+
+function buildFinisher(sessionType, profile) {
+    if (sessionType === "conditioning" || sessionType === "intervals") {
+        return {
+            title: "Finalizador metabólico",
+            detail:
+                profile.cardioStyle === "run"
+                    ? "6 tiros de 20 segundos em ritmo forte, com 40 segundos de recuperação."
+                    : "Circuito de 4 minutos com burpee, mountain climber e jumping jack.",
+            link: `https://www.youtube.com/results?search_query=${encodeURIComponent(
+                profile.cardioStyle === "run" ? "treino intervalado corrida" : "treino hiit metabólico"
+            )}`,
+        };
+    }
+
+    if (sessionType === "run") {
+        return {
+            title: "Fecho aeróbico",
+            detail: "Finalize com 5 minutos de caminhada leve e respiração nasal.",
+            link: `https://www.youtube.com/results?search_query=${encodeURIComponent("corrida leve técnica de corrida")}`,
+        };
+    }
+
+    if (sessionType === "walk") {
+        return {
+            title: "Zona 2 contínua",
+            detail: "Caminhada sustentada para saúde, queima calórica e recuperação.",
+            link: `https://www.youtube.com/results?search_query=${encodeURIComponent("caminhada acelerada benefícios")}`,
+        };
+    }
+
+    if (sessionType === "mobility") {
+        return {
+            title: "Reset de mobilidade",
+            detail: "Sequência de respiração, rotação torácica e abertura de quadril.",
+            link: `https://www.youtube.com/results?search_query=${encodeURIComponent("mobilidade quadril coluna torácica")}`,
+        };
     }
 
     return {
-      id: `${exercise.id}-${weekIndex}-${dayIndex}-${exerciseIndex}`,
-      name: exercise.name,
-      sets: adaptiveSets,
-      reps,
-      rest,
-      tempo,
-      rpe: prescription.rpe,
-      note,
-      cue: exercise.cues,
-      muscles: exercise.muscles,
-      detail: exercise.detail,
-      link: youtubeSearchUrl(exercise.name),
-      search: exercise.search,
+        title: "Finalizador técnico",
+        detail: "Core e postura por 6 minutos para consolidar a sessão.",
+        link: `https://www.youtube.com/results?search_query=${encodeURIComponent("core training dead bug plank")}`,
     };
-  });
-
-  let finisher = null;
-
-  if (type === "conditioning" || type === "intervals") {
-    finisher = {
-      title: "Finalizador metabólico",
-      detail:
-        profile.cardioStyle === "run"
-          ? "6 tiros de 20 segundos de corrida forte / 40 segundos leves."
-          : "Circuito de 4 minutos com mountain climber, polichinelo e burpee sem descanso.",
-      link: youtubeSearchUrl(profile.cardioStyle === "run" ? "sprint interval training" : "treino hiit circuito"),
-    };
-  } else if (type === "full") {
-    finisher = {
-      title: "Finalizador técnico",
-      detail: "Prancha + dead bug + mobilidade de quadril por 6 minutos.",
-      link: youtubeSearchUrl("core training plank dead bug"),
-    };
-  } else if (type === "mobility") {
-    finisher = {
-      title: "Reset de recuperação",
-      detail: "Sequência de respiração, cat-cow e mobilidade torácica por 8 minutos.",
-      link: youtubeSearchUrl("mobilidade quadril coluna toracica"),
-    };
-  }
-
-  return {
-    type,
-    title: toTitleCase(type).replace(/_/g, " "),
-    warmup,
-    blocks,
-    finisher,
-    duration: profile.sessionTime,
-    notes: [
-      goalTone(profile.goal),
-      profile.preferences || "Personalização automática aplicada.",
-    ],
-  };
 }
 
-function buildWeek(profile, weekIndex = 0) {
-  const start = addDays(startOfWeek(new Date()), weekIndex * 7);
-  const rows = [];
+function buildWorkout(profile, sessionType, weekIndex, dayIndex, totalWeeks) {
+    const blockCount =
+        sessionType === "run" || sessionType === "walk"
+            ? 1
+            : sessionType === "mobility" || sessionType === "core"
+                ? 3
+                : sessionType === "conditioning" || sessionType === "intervals"
+                    ? 3
+                    : profile.sessionTime <= 30
+                        ? 3
+                        : profile.sessionTime <= 45
+                            ? 4
+                            : 5;
 
-  for (let index = 0; index < 7; index += 1) {
-    const date = addDays(start, index);
-    const pattern = dayPatternForIndex(profile, index);
-    const active = pattern.type !== "recovery";
-    const workout = active ? buildWorkoutBlock(profile, pattern.type, weekIndex, index) : null;
+    const prescription = buildPrescription(profile, sessionType, weekIndex, totalWeeks);
+    const exercises = pickExercises(profile, sessionType, blockCount, weekIndex, dayIndex).map((exercise, index) => {
+        let reps = prescription.reps;
+        let rest = prescription.rest;
+        let tempo = prescription.tempo;
+        let sets = prescription.sets;
+        let detail = exercise.detail;
 
-    rows.push({
-      id: `${weekIndex}-${index}-${date.toISOString().slice(0, 10)}`,
-      date,
-      active,
-      type: pattern.type,
-      label: pattern.label,
-      intensity: pattern.intensity,
-      workout,
-      completed: Boolean(state.checkins[date.toISOString().slice(0, 10)]),
+        if (sessionType === "run" && index === 0) {
+            detail =
+                profile.cardioStyle === "hiit"
+                    ? "Blocos curtos de corrida forte com recuperação planejada."
+                    : "Ritmo conversável para construir base aeróbica.";
+        }
+
+        if (sessionType === "walk" && index === 0) {
+            detail = "Caminhada vigorosa com postura alta e ritmo contínuo.";
+        }
+
+        if (sessionType === "mobility") {
+            reps = "8-10 por lado";
+            rest = 15;
+            tempo = "controlado";
+            sets = 2;
+        }
+
+        return {
+            id: `${exercise.id}-${weekIndex}-${dayIndex}-${index}`,
+            name: exercise.name,
+            detail,
+            cue: exercise.cue,
+            sets,
+            reps,
+            rest,
+            tempo,
+            rpe: prescription.rpe,
+            link: `https://www.youtube.com/results?search_query=${encodeURIComponent(exercise.linkQuery)}`,
+            muscles: unique(exercise.muscles),
+        };
     });
-  }
 
-  return rows;
+    return {
+        type: sessionType,
+        title: sessionTitle(sessionType),
+        objective: sessionObjective(sessionType, profile),
+        duration: profile.sessionTime,
+        warmup: buildWarmup(sessionType, profile),
+        blocks: exercises,
+        finisher: buildFinisher(sessionType, profile),
+        cooldown: buildCooldown(sessionType),
+        note: noteForSession(profile, sessionType),
+    };
+}
+
+function sessionTitle(type) {
+    const map = {
+        push: "Push",
+        pull: "Pull",
+        legs: "Pernas",
+        lower: "Posterior e glúteos",
+        upper: "Upper body",
+        full: "Full body",
+        conditioning: "Condicionamento",
+        intervals: "Intervalos",
+        mobility: "Mobilidade",
+        core: "Core",
+        run: "Corrida",
+        walk: "Caminhada",
+        recovery: "Recuperação",
+        strength: "Força",
+    };
+    return map[type] || toTitleCase(type);
+}
+
+function sessionObjective(type, profile) {
+    const objectiveMap = {
+        push: "Empurrar forte com foco em peitoral, ombro e tríceps.",
+        pull: "Fortalecer costas, postura e braços de tração.",
+        legs: "Construir pernas, estabilidade e potência.",
+        lower: "Ativar cadeia posterior, glúteos e estabilidade lombar.",
+        upper: "Equilíbrio entre empurrar e puxar no tronco superior.",
+        full: "Corpo inteiro com densidade e eficiência.",
+        conditioning: "Gasto calórico e condicionamento metabólico.",
+        intervals: "HIIT para potência, velocidade e saída de zona de conforto.",
+        mobility: "Liberdade articular e recuperação ativa.",
+        core: "Controle do tronco e proteção lombar.",
+        run: profile.cardioStyle === "hiit" ? "Corrida intervalada e explosiva." : "Base aeróbica e ritmo constante.",
+        walk: "Zona 2 e recuperação sem impacto.",
+        strength: "Força total e compostos prioritários.",
+        recovery: "Descanso ativo e reset do sistema.",
+    };
+    return objectiveMap[type] || GOAL_TONES[profile.goal] || "Sessão estratégica adaptada ao objetivo.";
+}
+
+function noteForSession(profile, sessionType) {
+    if (sessionType === "run") {
+        return profile.cardioStyle === "hiit"
+            ? "Nesta sessão, a explosão é mais importante que a velocidade máxima."
+            : "Ritmo conversável. Se faltar fôlego, reduza e sustente."
+    }
+
+    if (sessionType === "walk") {
+        return "Mantenha a caminhada contínua. O foco é constância e circulação.";
+    }
+
+    if (sessionType === "mobility") {
+        return "Qualidade vence amplitude. Faça tudo com respiração calma.";
+    }
+
+    return profile.preferences
+        ? `Preferência do usuário aplicada: ${profile.preferences}`
+        : "Sem preferência específica adicionada. O sistema escolheu a melhor combinação disponível.";
+}
+
+function buildWeeklyPattern(profile, weekIndex, totalWeeks) {
+    const activeDays = activeWeekdays(profile.daysPerWeek);
+    const sequence = rotatedSequence(profile.goal, weekIndex);
+    const weekStart = addDays(startOfWeek(new Date()), weekIndex * 7);
+    const days = [];
+
+    activeDays.forEach((weekdayIndex, activeIndex) => {
+        const date = addDays(weekStart, weekdayIndex);
+        const sessionType = sequence[activeIndex % sequence.length];
+        const workout = buildWorkout(profile, sessionType, weekIndex, activeIndex, totalWeeks);
+        const key = dateKey(date);
+        days.push({
+            key,
+            date,
+            weekdayIndex,
+            active: true,
+            type: sessionType,
+            label: sessionTitle(sessionType),
+            badge: weekIndex === 3 && totalWeeks === 4 ? "Deload" : "Treino",
+            completed: Boolean(state.checkins[key]),
+            workout,
+        });
+    });
+
+    for (let weekdayIndex = 0; weekdayIndex < 7; weekdayIndex += 1) {
+        if (activeDays.includes(weekdayIndex)) continue;
+        const date = addDays(weekStart, weekdayIndex);
+        days.push({
+            key: dateKey(date),
+            date,
+            weekdayIndex,
+            active: false,
+            type: "recovery",
+            label: "Recuperação ativa",
+            badge: "Descanso",
+            completed: Boolean(state.checkins[dateKey(date)]),
+            workout: null,
+        });
+    }
+
+    return days.sort((a, b) => a.weekdayIndex - b.weekdayIndex);
 }
 
 function buildPlan(profile) {
-  const weeks = profile.horizon === "monthly" ? 4 : 1;
-  const generated = [];
+    const totalWeeks = profile.horizon === "monthly" ? 4 : 1;
+    const weeks = [];
 
-  for (let weekIndex = 0; weekIndex < weeks; weekIndex += 1) {
-    generated.push({
-      weekIndex,
-      label: weekIndex === 3 ? "Semana 4 - Deload e consolidação" : `Semana ${weekIndex + 1}`,
-      focus: weekIndex === 3 ? "Redução de carga para recuperar e consolidar ganhos." : goalTone(profile.goal),
-      rows: buildWeek(profile, weekIndex),
-    });
-  }
-
-  return {
-    id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`,
-    createdAt: new Date().toISOString(),
-    profile,
-    horizon: profile.horizon,
-    weeks: generated,
-    title: planLabel(profile),
-    summary: `${goalTone(profile.goal)} Plano ${profile.horizon === "monthly" ? "mensal" : "semanal"} com ${profile.daysPerWeek} dias por semana.`,
-  };
-}
-
-function saveLocalState() {
-  storage.write(PROFILE_KEY, state.profile);
-  storage.write(PLAN_KEY, state.plan);
-  storage.write(CHECKIN_KEY, state.checkins);
-  storage.write(STORAGE_KEY, {
-    profile: state.profile,
-    plan: state.plan,
-    checkins: state.checkins,
-  });
-}
-
-async function syncRemoteState() {
-  const userId = getFirebaseUserId();
-  if (!userId) return;
-
-  await saveCoachState(userId, {
-    profile: state.profile,
-    plan: state.plan,
-    checkins: state.checkins,
-  });
-}
-
-function applyProfile(profile) {
-  state.profile = profile;
-  writeProfileToForm(profile);
-  saveLocalState();
-}
-
-function renderWeekSwitch() {
-  if (!state.plan) {
-    els.weekSwitch.innerHTML = "";
-    return;
-  }
-
-  els.weekSwitch.innerHTML = state.plan.weeks
-    .map(
-      (week, index) =>
-        `<button class="week-tab ${index === state.selectedWeek ? "is-active" : ""}" data-week="${index}" type="button">${week.label}</button>`
-    )
-    .join("");
-
-  els.weekSwitch.querySelectorAll("button").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.selectedWeek = Number(button.dataset.week);
-      renderAll();
-    });
-  });
-}
-
-function renderExerciseCard(exercise) {
-  const node = els.exerciseCardTemplate.content.cloneNode(true);
-  const card = node.querySelector(".exercise-card");
-  node.querySelector("h4").textContent = exercise.name;
-  node.querySelector("p").textContent = exercise.detail;
-  const link = node.querySelector("a");
-  link.href = exercise.link;
-  link.textContent = "Como executar";
-  const stats = node.querySelector(".exercise-stats");
-  stats.innerHTML = [
-    `<span class="stat-pill">${exercise.sets} séries</span>`,
-    `<span class="stat-pill">${exercise.reps} reps</span>`,
-    `<span class="stat-pill">Descanso ${exercise.rest}s</span>`,
-    `<span class="stat-pill">RPE ${exercise.rpe}</span>`,
-    `<span class="stat-pill">${exercise.tempo}</span>`,
-  ].join("");
-  node.querySelector(".exercise-note").innerHTML = `
-    <strong>Dica:</strong> ${exercise.cue}<br />
-    <strong>Foco:</strong> ${unique(exercise.muscles).join(" · ")}
-  `;
-  return card;
-}
-
-function renderDayCard(day) {
-  const node = els.dayCardTemplate.content.cloneNode(true);
-  const card = node.querySelector(".day-card");
-  const title = node.querySelector("h3");
-  const label = node.querySelector(".day-label");
-  const badge = node.querySelector(".day-badge");
-  const meta = node.querySelector(".day-meta");
-  const blocks = node.querySelector(".day-blocks");
-  const checkinBtn = node.querySelector(".checkin-btn");
-  const detailsBtn = node.querySelector(".details-btn");
-
-  title.textContent = formatDate(day.date);
-  label.textContent = day.active ? day.label : "Recovery day";
-  badge.textContent = day.completed ? "Concluído" : day.active ? "Pendente" : "Recuperação";
-  meta.textContent = `${day.intensity} · ${day.date.toLocaleDateString("pt-BR", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  })}`;
-
-  if (!day.active) {
-    blocks.innerHTML = `<div class="empty-state">Dia de recuperação ativa. Caminhada leve, mobilidade ou descanso.</div>`;
-    checkinBtn.textContent = "Registrar recuperação";
-  } else {
-    blocks.innerHTML = "";
-    if (!day.workout?.blocks?.length) {
-      blocks.innerHTML = `<div class="empty-state">Nenhum exercício específico encontrado para este perfil. O sistema vai ajustar o split automaticamente.</div>`;
-    } else {
-      day.workout.blocks.forEach((exercise) => {
-        blocks.appendChild(renderExerciseCard(exercise));
-      });
+    for (let weekIndex = 0; weekIndex < totalWeeks; weekIndex += 1) {
+        const phase = WEEK_PHASES[weekIndex] || WEEK_PHASES[WEEK_PHASES.length - 1];
+        const days = buildWeeklyPattern(profile, weekIndex, totalWeeks);
+        weeks.push({
+            index: weekIndex,
+            label: `Semana ${weekIndex + 1}`,
+            phase,
+            days,
+        });
     }
-  }
 
-  if (day.completed) card.classList.add("is-complete");
-  if (day.active && isMissedDay(day.date)) card.classList.add("is-missed");
-
-  checkinBtn.addEventListener("click", async () => {
-    markCheckin(day.date);
-    await persistState();
-    renderAll();
-  });
-
-  detailsBtn.addEventListener("click", () => {
-    const details = day.active
-      ? `${day.workout.title}. ${day.workout.notes.join(" ")}`
-      : "Dia de recuperação focado em mobilidade, caminhada leve e reposição energética.";
-    alert(details);
-  });
-
-  return card;
+    const activeDays = weeks.flatMap((week) => week.days.filter((day) => day.active)).length;
+    return {
+        id: `${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        title: `${GOAL_LABELS[profile.goal] || "Misto"} · ${profile.horizon === "monthly" ? "mensal" : "semanal"}`,
+        subtitle: GOAL_TONES[profile.goal] || GOAL_TONES.misto,
+        weeks,
+        activeDays,
+        profileSnapshot: { ...profile },
+    };
 }
 
-function isMissedDay(date) {
-  const today = new Date();
-  const key = date.toISOString().slice(0, 10);
-  return date < new Date(today.toDateString()) && !state.checkins[key] && date <= today;
+function calculateCompletion(plan, checkins) {
+    if (!plan) return 0;
+    const activeDays = plan.weeks.flatMap((week) => week.days.filter((day) => day.active));
+    if (!activeDays.length) return 0;
+    const completed = activeDays.filter((day) => Boolean(checkins[day.key])).length;
+    return Math.round((completed / activeDays.length) * 100);
 }
 
-function markCheckin(date) {
-  const key = date.toISOString().slice(0, 10);
-  state.checkins[key] = {
-    completedAt: new Date().toISOString(),
-    label: formatDate(date),
-  };
-
-  state.profile.lastCheckin = key;
-  storage.write(CHECKIN_KEY, state.checkins);
-  saveLocalState();
-}
-
-function calculateStreak() {
-  const dates = Object.keys(state.checkins).sort();
-  if (!dates.length) return 0;
-
-  const today = new Date();
-  let streak = 0;
-  let cursor = new Date(today);
-
-  while (streak < 365) {
-    const key = cursor.toISOString().slice(0, 10);
-    if (state.checkins[key]) {
-      streak += 1;
-      cursor = addDays(cursor, -1);
-      continue;
+function calculateStreak(checkins) {
+    const keys = Object.keys(checkins).sort();
+    if (!keys.length) return 0;
+    const last = dateFromKey(keys[keys.length - 1]);
+    let streak = 0;
+    let cursor = new Date(last);
+    while (streak < 365) {
+        const key = dateKey(cursor);
+        if (!checkins[key]) break;
+        streak += 1;
+        cursor = addDays(cursor, -1);
     }
-    if (cursor > today) {
-      cursor = addDays(cursor, -1);
-      continue;
-    }
-    break;
-  }
-
-  return streak;
+    return streak;
 }
 
-function calculateCompletion(plan) {
-  if (!plan) return 0;
+function daysInactiveSinceLastWorkout(checkins) {
+    const keys = Object.keys(checkins).sort();
+    if (!keys.length) return null;
+    const last = dateFromKey(keys[keys.length - 1]);
+    const today = new Date();
+    const diff = Math.floor((new Date(today.getFullYear(), today.getMonth(), today.getDate()) - new Date(last.getFullYear(), last.getMonth(), last.getDate())) / 86400000);
+    return Math.max(0, diff);
+}
 
-  const allActive = plan.weeks.flatMap((week) => week.rows.filter((row) => row.active));
-  if (!allActive.length) return 0;
+function missedActiveDays(plan, checkins) {
+    if (!plan) return 0;
+    const today = new Date();
+    return plan.weeks
+        .flatMap((week) => week.days)
+        .filter((day) => day.active && day.date <= today && !checkins[day.key]).length;
+}
 
-  const completed = allActive.filter((day) => state.checkins[day.date.toISOString().slice(0, 10)]).length;
-  return Math.round((completed / allActive.length) * 100);
+function nextPendingSession(plan, checkins) {
+    if (!plan) return null;
+    const sessions = plan.weeks.flatMap((week) => week.days.filter((day) => day.active));
+    return sessions.find((day) => !checkins[day.key]) || null;
 }
 
 function buildAlerts() {
-  const alerts = [];
-  const streak = calculateStreak();
-  const lastCheckinKey = Object.keys(state.checkins).sort().slice(-1)[0];
-  const lastCheckinDate = lastCheckinKey ? new Date(lastCheckinKey) : null;
-  const daysInactive = lastCheckinDate ? Math.max(0, Math.floor((Date.now() - lastCheckinDate.getTime()) / 86400000)) : null;
+    const alerts = [];
+    const streak = calculateStreak(state.checkins);
+    const missed = missedActiveDays(state.plan, state.checkins);
+    const inactiveDays = daysInactiveSinceLastWorkout(state.checkins);
+    const next = nextPendingSession(state.plan, state.checkins);
 
-  if (state.plan) {
-    const missed = state.plan.weeks
-      .flatMap((week) => week.rows)
-      .filter((day) => day.active && isMissedDay(day.date))
-      .slice(-3);
-
-    if (missed.length) {
-      alerts.push({
-        kind: "danger",
-        title: "Sequência quebrada detectada",
-        text: `Você tem ${missed.length} treino(s) ativo(s) sem check-in recente. O sistema recomenda uma volta curta hoje: 15 a 20 minutos, foco em consistência.`,
-      });
-    } else {
-      alerts.push({
-        kind: "success",
-        title: "Plano em movimento",
-        text: "O calendário está alinhado. Mantenha o ritmo e siga a progressão planejada.",
-      });
+    if (!state.plan) {
+        alerts.push({
+            tone: "success",
+            title: "Pronto para gerar",
+            text: "Complete o formulário e o motor cria o treino automaticamente.",
+        });
+        return alerts;
     }
-  }
 
-  if (streak >= 3) {
-    alerts.push({
-      kind: "success",
-      title: "Boa sequência",
-      text: `Sequência atual de ${streak} dias. Você está criando identidade de atleta.`,
-    });
-  }
+    if (missed > 0) {
+        alerts.push({
+            tone: "danger",
+            title: "Sessões em atraso",
+            text: `Existem ${missed} dia(s) ativo(s) sem check-in. Faça uma sessão curta hoje e recupere a sequência.`,
+        });
+    } else {
+        alerts.push({
+            tone: "success",
+            title: "Calendário alinhado",
+            text: "Todos os dias ativos previstos já estão em dia ou ainda estão no futuro.",
+        });
+    }
 
-  if (daysInactive !== null && daysInactive >= 2) {
-    alerts.push({
-      kind: "danger",
-      title: "Hora de voltar",
-      text: `Você está há ${daysInactive} dia(s) sem treinar. Faça hoje uma sessão reduzida, mas não perca o hábito.`,
-    });
-  }
+    if (streak >= 3) {
+        alerts.push({
+            tone: "success",
+            title: "Boa sequência",
+            text: `Sequência atual de ${streak} check-in(s). Continue construindo consistência.`,
+        });
+    }
 
-  if (!alerts.length) {
-    alerts.push({
-      kind: "success",
-      title: "Pronto para iniciar",
-      text: "Gere seu plano e comece com a primeira sessão agora. O coach vai ajustar o restante automaticamente.",
-    });
-  }
+    if (inactiveDays !== null && inactiveDays >= 2) {
+        alerts.push({
+            tone: "danger",
+            title: "Hora de voltar",
+            text: `Você está há ${inactiveDays} dia(s) sem treinar. Escolha uma sessão curta hoje e volte ao trilho.`,
+        });
+    }
 
-  return alerts;
+    if (next) {
+        alerts.push({
+            tone: "success",
+            title: "Próxima missão",
+            text: `${formatDateLabel(next.date, { weekday: "short", day: "2-digit", month: "short" })} · ${next.label}`,
+        });
+    }
+
+    return alerts.slice(0, 4);
+}
+
+function renderFormState() {
+    writeProfileToForm(state.profile);
+}
+
+function renderSummary() {
+    if (!state.plan) {
+        els.planSummary.innerHTML = `
+      <strong>Preencha o formulário e gere o plano.</strong><br />
+      O treino aparecerá aqui com divisão semanal ou mensal, detalhes de execução e check-in no calendário.
+    `;
+        els.planValue.textContent = "Sem plano";
+        els.planMetaValue.textContent = "Nenhum ciclo ativo";
+        els.nextWorkoutValue.textContent = "Gere um plano";
+        els.heroSignal.textContent = "Preencha o formulário para criar um treino adaptado ao seu cenário.";
+        return;
+    }
+
+    els.planSummary.innerHTML = `
+    <strong>${state.plan.title}</strong><br />
+    ${state.plan.subtitle}<br /><br />
+    <strong>Perfil:</strong> ${GOAL_LABELS[state.profile.goal] || toTitleCase(state.profile.goal)} ·
+    ${state.profile.location === "home" ? "Casa" : state.profile.location === "gym" ? "Academia" : "Híbrido"} ·
+    ${state.profile.level} · ${state.profile.sessionTime} min
+  `;
+    els.planValue.textContent = GOAL_LABELS[state.profile.goal] || "Plano";
+    els.planMetaValue.textContent = `${state.profile.daysPerWeek} dias/semana · ${state.profile.horizon === "monthly" ? "Mensal" : "Semanal"}`;
+
+    const next = nextPendingSession(state.plan, state.checkins);
+    els.nextWorkoutValue.textContent = next
+        ? `${formatDateLabel(next.date, { weekday: "short", day: "2-digit", month: "short" })} · ${next.label}`
+        : "Ciclo concluído";
+
+    els.heroSignal.textContent = next
+        ? `Próxima missão: ${next.label} em ${formatDateLabel(next.date, { weekday: "short", day: "2-digit", month: "short" })}. ${next.workout.note}`
+        : "Todos os treinos ativos do ciclo já foram concluídos. Gere um novo plano ou aumente a meta.";
+}
+
+function renderWeekSwitch() {
+    if (!state.plan) {
+        els.weekSwitch.innerHTML = "";
+        return;
+    }
+
+    els.selectedWeek = clamp(state.selectedWeek ?? 0, 0, state.plan.weeks.length - 1);
+    els.weekSwitch.innerHTML = state.plan.weeks
+        .map((week, index) => `<button class="week-tab ${index === state.selectedWeek ? "is-active" : ""}" data-week="${index}" type="button">${week.label}</button>`)
+        .join("");
+}
+
+function renderPlan() {
+    if (!state.plan) {
+        els.planContainer.innerHTML = `<div class="empty-state">O sistema está aguardando os dados do formulário para gerar um ciclo completo.</div>`;
+        return;
+    }
+
+    const week = state.plan.weeks[state.selectedWeek] || state.plan.weeks[0];
+    if (!week) {
+        els.planContainer.innerHTML = `<div class="empty-state">Nenhuma semana disponível.</div>`;
+        return;
+    }
+
+    els.planContainer.innerHTML = week.days
+        .map((day) => {
+            if (!day.active) {
+                return `
+          <article class="day-card ${day.completed ? "is-complete" : ""}" data-day-key="${day.key}">
+            <div class="day-top">
+              <div>
+                <div class="eyebrow">${formatDateLabel(day.date, { weekday: "short" })}</div>
+                <h3>${formatDateLabel(day.date, { day: "2-digit", month: "short" })}</h3>
+              </div>
+              <span class="day-badge">Descanso</span>
+            </div>
+            <div class="day-summary">Dia de recuperação ativa. Caminhada leve, mobilidade e sono bem feito.</div>
+            <div class="day-actions">
+              <button class="ghost-btn" type="button" data-action="details" data-day-key="${day.key}">Detalhes</button>
+            </div>
+          </article>
+        `;
+            }
+
+            const blocks = day.workout.blocks
+                .map(
+                    (exercise) => `
+            <article class="exercise-card">
+              <div class="exercise-top">
+                <div>
+                  <h4>${exercise.name}</h4>
+                  <p>${exercise.detail}</p>
+                </div>
+                <a href="${exercise.link}" target="_blank" rel="noreferrer">Como executar</a>
+              </div>
+              <div class="exercise-stats">
+                <span class="stat-pill">${exercise.sets} séries</span>
+                <span class="stat-pill">${exercise.reps}</span>
+                <span class="stat-pill">Descanso ${exercise.rest}s</span>
+                <span class="stat-pill">RPE ${exercise.rpe}</span>
+                <span class="stat-pill">${exercise.tempo}</span>
+              </div>
+              <div class="exercise-note"><strong>Dica:</strong> ${exercise.cue}</div>
+            </article>
+          `
+                )
+                .join("");
+
+            return `
+        <article class="day-card ${day.completed ? "is-complete" : ""}" data-day-key="${day.key}">
+          <div class="day-top">
+            <div>
+              <div class="eyebrow">${formatDateLabel(day.date, { weekday: "short" })}</div>
+              <h3>${formatDateLabel(day.date, { day: "2-digit", month: "short" })}</h3>
+            </div>
+            <span class="day-badge">${day.completed ? "Concluído" : week.phase}</span>
+          </div>
+          <div class="day-meta">${day.label} · ${day.workout.duration} min · ${day.workout.objective}</div>
+          <div class="day-summary">${day.workout.note}</div>
+          <div class="day-blocks">
+            ${blocks}
+          </div>
+          <div class="day-summary">
+            <strong>Finalizador:</strong> ${day.workout.finisher.title}<br />
+            ${day.workout.finisher.detail}
+          </div>
+          <div class="day-actions">
+            <button class="primary-btn" type="button" data-action="checkin" data-day-key="${day.key}" ${state.checkins[day.key] ? "disabled" : ""}>
+              ${state.checkins[day.key] ? "Concluído" : "Marcar check-in"}
+            </button>
+            <button class="ghost-btn" type="button" data-action="details" data-day-key="${day.key}">Detalhes</button>
+          </div>
+        </article>
+      `;
+        })
+        .join("");
+}
+
+function renderCalendar() {
+    const anchor = state.plan ? state.plan.weeks[0].days[0].date : new Date();
+    const monthStart = startOfMonth(anchor);
+    const monthEnd = endOfMonth(anchor);
+    const gridStart = startOfWeek(monthStart);
+    const gridEnd = addDays(startOfWeek(monthEnd), 6);
+    const cells = [];
+    const plannedDays = new Map(state.plan ? state.plan.weeks.flatMap((week) => week.days).map((day) => [day.key, day]) : []);
+    const todayKey = dateKey(new Date());
+
+    for (let cursor = new Date(gridStart); cursor <= gridEnd; cursor = addDays(cursor, 1)) {
+        const key = dateKey(cursor);
+        const planned = plannedDays.get(key);
+        const completed = Boolean(state.checkins[key]);
+        const muted = cursor.getMonth() !== monthStart.getMonth();
+        const active = Boolean(planned?.active);
+        let classes = "calendar-cell";
+        if (muted) classes += " is-muted";
+        if (active) classes += " is-active";
+        if (completed) classes += " is-complete";
+        if (active && !completed && cursor < new Date() && key !== todayKey) classes += " is-missed";
+
+        cells.push(`
+      <div class="${classes}">
+        <div class="calendar-day">
+          <span>${formatDateLabel(cursor, { weekday: "short", day: undefined, month: undefined })}</span>
+          <strong>${pad(cursor.getDate())}</strong>
+        </div>
+        <div>${planned ? planned.label : "Livre"}</div>
+        <div class="calendar-tag">${completed ? "Concluído" : active ? "Treino planejado" : "Recuperação"}</div>
+      </div>
+    `);
+    }
+
+    els.calendarInfo.innerHTML = `
+    <strong>${formatMonthLabel(anchor)}</strong><br />
+    ${state.plan ? `${state.plan.activeDays} sessões planejadas neste ciclo.` : "Gere um plano para preencher o calendário."}
+  `;
+    els.calendarGrid.innerHTML = cells.join("");
+    els.calendarValue.textContent = state.plan ? `${state.plan.activeDays} treinos` : "0 treinos";
 }
 
 function renderAlerts() {
-  els.alertsPanel.innerHTML = buildAlerts()
-    .map(
-      (alert) => `
-        <div class="alert-card is-${alert.kind}">
+    const alerts = buildAlerts();
+    els.alertsPanel.innerHTML = alerts
+        .map(
+            (alert) => `
+        <div class="alert-card is-${alert.tone}">
           <strong>${alert.title}</strong>
           <div>${alert.text}</div>
         </div>
       `
-    )
-    .join("");
-}
-
-function renderCalendar() {
-  if (!state.plan) {
-    els.calendarInfo.textContent = "Gere um plano para visualizar o calendário de check-ins.";
-    els.calendarGrid.innerHTML = "";
-    return;
-  }
-
-  const firstWeek = state.plan.weeks[0];
-  const monthDate = firstWeek?.rows[0]?.date || new Date();
-  const monthStart = startOfMonth(monthDate);
-  const monthEnd = endOfMonth(monthDate);
-  const start = new Date(monthStart);
-  start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
-  const end = new Date(monthEnd);
-  end.setDate(end.getDate() + (6 - ((end.getDay() + 6) % 7)));
-
-  const infoText = `${formatMonthYear(monthDate)} · ${state.plan.title} · ${state.profile.daysPerWeek} treino(s) por semana`;
-  els.calendarInfo.innerHTML = infoText;
-
-  const cells = [];
-  const scheduleDays = state.plan.weeks.flatMap((week) => week.rows);
-  const scheduleMap = new Map(scheduleDays.map((day) => [day.date.toISOString().slice(0, 10), day]));
-
-  for (let cursor = new Date(start); cursor <= end; cursor = addDays(cursor, 1)) {
-    const key = cursor.toISOString().slice(0, 10);
-    const planned = scheduleMap.get(key);
-    const completed = Boolean(state.checkins[key]);
-    const isMuted = cursor.getMonth() !== monthDate.getMonth();
-
-    let className = "calendar-cell";
-    if (isMuted) className += " is-muted";
-    if (planned?.active) className += " is-active";
-    if (completed) className += " is-complete";
-    if (planned?.active && !completed && cursor < new Date(new Date().toDateString())) className += " is-missed";
-
-    cells.push(`
-      <div class="${className}">
-        <div class="calendar-day">
-          <span class="calendar-title">${cursor.toLocaleDateString("pt-BR", { weekday: "short" })}</span>
-          <span>${formatDayNumber(cursor)}</span>
-        </div>
-        <div>${planned ? planned.label : "Fora do ciclo"}</div>
-        <div class="calendar-tag">
-          ${completed ? "Concluído" : planned?.active ? "Treino planejado" : "Recuperação"}
-        </div>
-      </div>
-    `);
-  }
-
-  els.calendarGrid.innerHTML = cells.join("");
+        )
+        .join("");
 }
 
 function renderLibrary() {
-  const filtered = exerciseLibrary.filter((exercise) => isExerciseAllowed(exercise, state.profile));
-  els.libraryGrid.innerHTML = "";
+    const filtered = exerciseLibrary.filter((exercise) => {
+        const profile = state.profile;
+        const locationAllowed =
+            profile.location === "hybrid" || exercise.modes.includes(profile.location) || exercise.modes.includes("hybrid");
+        const equipmentAllowed =
+            exercise.equipment.includes("none") || exercise.equipment.some((item) => profile.equipment.includes(item));
+        return locationAllowed && equipmentAllowed;
+    });
 
-  filtered.slice(0, 12).forEach((exercise) => {
-    const node = els.libraryCardTemplate.content.cloneNode(true);
-    node.querySelector("h4").textContent = exercise.name;
-    node.querySelector("span").textContent = exercise.modes.join(" / ");
-    node.querySelector("p").textContent = exercise.detail;
-    const tags = node.querySelector(".library-tags");
-    tags.innerHTML = [
-      ...exercise.focus.slice(0, 3).map((item) => `<span class="chip">${toTitleCase(item)}</span>`),
-      ...exercise.muscles.slice(0, 2).map((item) => `<span class="chip">${item}</span>`),
-    ].join("");
-    const link = node.querySelector("a");
-    link.href = youtubeSearchUrl(exercise.name);
-    link.textContent = "Ver execução";
-    els.libraryGrid.appendChild(node);
-  });
+    const fallback = filtered.length ? filtered : exerciseLibrary;
+    const items = fallback.slice(0, 12);
+
+    els.libraryCountValue.textContent = `${items.length} exercícios`;
+    els.libraryGrid.innerHTML = items
+        .map(
+            (exercise) => `
+        <article class="library-card">
+          <div class="library-top">
+            <div>
+              <div class="eyebrow">${exercise.tags.slice(0, 2).join(" · ")}</div>
+              <h3>${exercise.name}</h3>
+            </div>
+            <span>${exercise.modes.join(" / ")}</span>
+          </div>
+          <p>${exercise.detail}</p>
+          <div class="library-tags">
+            ${exercise.tags.slice(0, 3).map((tag) => `<span class="chip">${toTitleCase(tag)}</span>`).join("")}
+            ${exercise.muscles.slice(0, 2).map((muscle) => `<span class="chip">${muscle}</span>`).join("")}
+          </div>
+          <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(exercise.linkQuery)}" target="_blank" rel="noreferrer">Ver execução</a>
+        </article>
+      `
+        )
+        .join("");
 }
 
-function renderPlan() {
-  if (!state.plan) {
-    els.planSummary.innerHTML = `
-      <strong>Preencha o formulário e gere um plano inteligente.</strong><br />
-      Quando o formulário for enviado, o treino semanal ou mensal aparece aqui com a divisão exata.
-    `;
-    els.planContainer.innerHTML = `<div class="empty-state">O coach está esperando suas respostas para entregar o treino ideal.</div>`;
-    els.planValue.textContent = "Sem plano";
-    els.nextFocusValue.textContent = "Gere um plano";
-    return;
-  }
+function renderMetrics() {
+    const completion = calculateCompletion(state.plan, state.checkins);
+    const streak = calculateStreak(state.checkins);
+    const sortedKeys = Object.keys(state.checkins).sort();
+    const lastKey = sortedKeys[sortedKeys.length - 1];
+    const lastDate = lastKey ? dateFromKey(lastKey) : null;
+    const next = nextPendingSession(state.plan, state.checkins);
 
-  const selectedWeek = state.plan.weeks[state.selectedWeek] || state.plan.weeks[0];
-  els.planSummary.innerHTML = `
-    <strong>${state.plan.title}</strong><br />
-    ${state.plan.summary}<br />
-    <br />
-    <strong>Perfil:</strong> ${state.profile.location === "home" ? "Casa" : state.profile.location === "gym" ? "Academia" : "Híbrido"} · 
-    ${toTitleCase(state.profile.level)} · ${state.profile.sessionTime} min por sessão
-  `;
+    els.completionValue.textContent = `${completion}%`;
+    els.streakValue.textContent = `${streak} ${streak === 1 ? "dia" : "dias"}`;
+    els.lastWorkoutValue.textContent = lastDate ? formatDateLabel(lastDate, { weekday: "short", day: "2-digit", month: "short" }) : "Sem check-in";
+    els.modeValue.textContent = "Local · offline";
 
-  els.planContainer.innerHTML = "";
-  selectedWeek.rows.forEach((day) => {
-    els.planContainer.appendChild(renderDayCard(day));
-  });
-  els.planValue.textContent = state.plan.title;
-  els.nextFocusValue.textContent = selectedWeek.rows.find((day) => day.active)?.label || "Recuperação";
-}
-
-function updateMetrics() {
-  const streak = calculateStreak();
-  const completion = calculateCompletion(state.plan);
-  const lastCheckinKey = Object.keys(state.checkins).sort().slice(-1)[0];
-
-  els.streakValue.textContent = `${streak} dia${streak === 1 ? "" : "s"}`;
-  els.completionValue.textContent = `${completion}%`;
-  els.lastWorkoutValue.textContent = lastCheckinKey ? formatDate(new Date(lastCheckinKey)) : "Sem check-in";
-  els.modeValue.textContent = state.firebaseEnabled && state.firebaseReady ? "Firebase ativo" : "Local first";
-
-  if (state.plan) {
-    const firstActive = state.plan.weeks.flatMap((week) => week.rows).find((day) => day.active && !state.checkins[day.date.toISOString().slice(0, 10)]);
-    els.coachSignal.textContent = firstActive
-      ? `Próxima missão: ${firstActive.label} em ${formatDate(firstActive.date)}. ${firstActive.workout?.notes?.[0] || ""}`
-      : "Todos os treinos planejados já foram concluídos. Gere um novo ciclo ou aumente a meta.";
-  } else {
-    els.coachSignal.textContent = "O coach está aguardando seu formulário para criar o protocolo ideal.";
-  }
-}
-
-async function persistState() {
-  saveLocalState();
-  await syncRemoteState();
-}
-
-function renderFirebaseStatus() {
-  const status = getFirebaseStatus();
-  state.firebaseEnabled = status.enabled;
-  state.firebaseReady = status.ready;
-  state.firebaseReason = status.reason;
-  els.firebaseStatus.textContent = status.reason;
+    if (!state.plan) {
+        els.heroSignal.textContent = "Preencha o formulário para criar um treino adaptado ao seu cenário.";
+        els.nextWorkoutValue.textContent = "Gere um plano";
+    } else if (next) {
+        els.heroSignal.textContent = `Próxima missão: ${next.label} em ${formatDateLabel(next.date, { weekday: "short", day: "2-digit", month: "short" })}. ${next.workout.note}`;
+        els.nextWorkoutValue.textContent = `${next.label} · ${formatDateLabel(next.date, { day: "2-digit", month: "short" })}`;
+    } else {
+        els.heroSignal.textContent = "Todos os treinos ativos do ciclo já foram concluídos. Gere um novo plano ou aumente a meta.";
+        els.nextWorkoutValue.textContent = "Ciclo concluído";
+    }
 }
 
 function renderAll() {
-  renderFirebaseStatus();
-  renderWeekSwitch();
-  renderPlan();
-  renderCalendar();
-  renderLibrary();
-  renderAlerts();
-  updateMetrics();
+    renderFormState();
+    renderSummary();
+    renderWeekSwitch();
+    renderPlan();
+    renderCalendar();
+    renderAlerts();
+    renderLibrary();
+    renderMetrics();
+    saveState();
+}
+
+function openDayDialog(dayKey) {
+    if (!state.plan) return;
+    const day = state.plan.weeks.flatMap((week) => week.days).find((item) => item.key === dayKey);
+    if (!day) return;
+
+    els.dialogTag.textContent = day.active ? day.label : "Recuperação";
+    els.dialogTitle.textContent = formatDateLabel(day.date, { weekday: "long", day: "2-digit", month: "long" });
+    els.dialogSummary.textContent = day.active
+        ? `${day.workout.objective} · ${day.workout.duration} minutos`
+        : "Dia de recuperação ativa com baixo impacto e mobilidade.";
+
+    const content = [];
+    content.push(`
+    <div class="dialog-section">
+      <strong>Resumo</strong><br />
+      ${day.active ? day.workout.note : "Caminhada leve, alongamento e hidratação."}
+    </div>
+  `);
+
+    if (day.active) {
+        content.push(`
+      <div class="dialog-section">
+        <strong>Aquecimento</strong><br />
+        ${day.workout.warmup.map((item) => `• ${item}`).join("<br />")}
+      </div>
+    `);
+
+        content.push(`
+      <div class="dialog-section">
+        <strong>Exercícios</strong><br />
+        ${day.workout.blocks
+            .map(
+                (exercise) =>
+                    `• ${exercise.name} - ${exercise.sets} séries, ${exercise.reps}, descanso ${exercise.rest}s`
+            )
+            .join("<br />")}
+      </div>
+    `);
+
+        content.push(`
+      <div class="dialog-section">
+        <strong>Finalizador</strong><br />
+        ${day.workout.finisher.title}: ${day.workout.finisher.detail}
+      </div>
+    `);
+
+        content.push(`
+      <div class="dialog-section">
+        <strong>Volta à calma</strong><br />
+        ${day.workout.cooldown.map((item) => `• ${item}`).join("<br />")}
+      </div>
+    `);
+    }
+
+    els.dialogContent.innerHTML = content.join("");
+    if (typeof els.dayDialog.showModal === "function") {
+        els.dayDialog.showModal();
+    }
+}
+
+function markCheckin(dayKey) {
+    state.checkins[dayKey] = {
+        completedAt: new Date().toISOString(),
+    };
+    renderAll();
+    showToast("Check-in concluído. O calendário foi atualizado.");
+    scrollToPlan();
 }
 
 function populateDemoProfile() {
-  const demo = {
-    name: "Atleta Neon",
-    age: 32,
-    goal: "misto",
-    horizon: "monthly",
-    location: "hybrid",
-    level: "intermediate",
-    daysPerWeek: 5,
-    sessionTime: 45,
-    cardioStyle: "mixed",
-    intensity: "high",
-    equipment: ["none", "dumbbells", "band", "bike"],
-    focus: ["strength", "hypertrophy", "cardio", "mobility"],
-    restrictions: "lombar sensível ocasionalmente",
-    preferences: "Quero treinos intensos, com progressão e alertas se eu faltar.",
-  };
-  applyProfile(demo);
+    state.profile = {
+        name: "Atleta Neon",
+        age: 32,
+        goal: "misto",
+        horizon: "monthly",
+        location: "hybrid",
+        level: "intermediate",
+        daysPerWeek: 5,
+        sessionTime: 45,
+        cardioStyle: "mixed",
+        intensity: "high",
+        equipment: ["dumbbells", "band", "bike"],
+        focus: ["strength", "hypertrophy", "cardio", "mobility"],
+        restrictions: "lombar sensível ocasionalmente",
+        preferences: "Quero treinos intensos, com progressão e alertas se eu faltar.",
+    };
+    state.plan = buildPlan(state.profile);
+    state.selectedWeek = 0;
+    renderAll();
+    showToast("Exemplo premium carregado.");
+    scrollToPlan();
 }
 
-async function hydrateFromRemoteIfPossible() {
-  try {
-    const remote = await loadCoachState(getFirebaseUserId());
-    if (remote?.profile) {
-      state.profile = { ...getDefaultProfile(), ...remote.profile };
-      state.plan = remote.plan || state.plan;
-      state.checkins = remote.checkins || state.checkins;
-      storage.write(PROFILE_KEY, state.profile);
-      storage.write(PLAN_KEY, state.plan);
-      storage.write(CHECKIN_KEY, state.checkins);
-    }
-  } catch {
-    // fallback local only
-  }
+function resetAll() {
+    state.profile = createDefaultProfile();
+    state.plan = null;
+    state.checkins = {};
+    state.selectedWeek = 0;
+    storageRemove(STORAGE_KEY);
+    renderAll();
+    showToast("Sistema resetado.");
 }
 
 function wireEvents() {
-  els.coachForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    try {
-      const profile = readFormProfile();
-      state.profile = profile;
-      state.plan = buildPlan(profile);
-      state.selectedWeek = 0;
-      renderAll();
-      showToast("Treino gerado com sucesso. Veja o plano abaixo.");
-      scrollToPlan();
-      void persistState().catch((error) => {
-        console.error("Falha ao salvar treino:", error);
-        showToast("Treino gerado, mas a sincronização falhou.", "danger");
-      });
-    } catch (error) {
-      console.error("Falha ao gerar treino:", error);
-      showToast("Não foi possível gerar o treino. Verifique o formulário.", "danger");
-    }
-  });
+    bindEquipmentExclusivity();
 
-  els.generateBtn.addEventListener("click", () => {
-    els.coachForm.requestSubmit();
-  });
+    els.coachForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        try {
+            state.profile = readProfileFromForm();
+            state.plan = buildPlan(state.profile);
+            state.selectedWeek = 0;
+            renderAll();
+            showToast("Treino gerado com sucesso.");
+            scrollToPlan();
+        } catch (error) {
+            console.error("Falha ao gerar treino:", error);
+            showToast("Não foi possível gerar o treino. Revise os campos.", "danger");
+        }
+    });
 
-  els.demoBtn.addEventListener("click", async () => {
-    try {
-      populateDemoProfile();
-      state.plan = buildPlan(state.profile);
-      state.selectedWeek = 0;
-      renderAll();
-      showToast("Exemplo premium carregado.");
-      scrollToPlan();
-      void persistState().catch((error) => {
-        console.error("Falha ao salvar exemplo:", error);
-      });
-    } catch (error) {
-      console.error("Falha ao carregar exemplo:", error);
-      showToast("Não foi possível carregar o exemplo.", "danger");
-    }
-  });
+    els.generateBtn.addEventListener("click", () => {
+        if (typeof els.coachForm.requestSubmit === "function") {
+            els.coachForm.requestSubmit();
+            return;
+        }
 
-  els.resetBtn.addEventListener("click", async () => {
-    try {
-      state.profile = getDefaultProfile();
-      state.plan = null;
-      state.checkins = {};
-      state.selectedWeek = 0;
-      storage.remove(PROFILE_KEY);
-      storage.remove(PLAN_KEY);
-      storage.remove(CHECKIN_KEY);
-      writeProfileToForm(state.profile);
-      renderAll();
-      showToast("Formulário resetado.");
-      void persistState().catch((error) => {
-        console.error("Falha ao limpar estado:", error);
-      });
-    } catch (error) {
-      console.error("Falha ao resetar formulário:", error);
-      showToast("Não foi possível resetar o formulário.", "danger");
-    }
-  });
+        const submitButton = els.coachForm.querySelector('button[type="submit"]');
+        if (submitButton) {
+            submitButton.click();
+        }
+    });
+
+    els.demoBtn.addEventListener("click", () => {
+        populateDemoProfile();
+    });
+
+    els.resetBtn.addEventListener("click", resetAll);
+
+    els.weekSwitch.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-week]");
+        if (!button || !state.plan) return;
+        state.selectedWeek = Number(button.dataset.week);
+        renderAll();
+    });
+
+    els.planContainer.addEventListener("click", (event) => {
+        const checkButton = event.target.closest('[data-action="checkin"]');
+        if (checkButton) {
+            markCheckin(checkButton.dataset.dayKey);
+            return;
+        }
+
+        const detailsButton = event.target.closest('[data-action="details"]');
+        if (detailsButton) {
+            openDayDialog(detailsButton.dataset.dayKey);
+        }
+    });
+
+    els.dayDialog.addEventListener("click", (event) => {
+        if (event.target?.hasAttribute("data-dialog-close")) {
+            els.dayDialog.close();
+        }
+    });
 }
 
-async function main() {
-  try {
+function init() {
     writeProfileToForm(state.profile);
     wireEvents();
     renderAll();
-
-    const config = storage.read(CUSTOM_CONFIG_KEY, null);
-    if (config && typeof config === "object") {
-      globalThis.FIREBASE_CONFIG = config;
-    }
-
-    void (async () => {
-      const firebaseStatus = await initCoachFirebase();
-      if (firebaseStatus.enabled && firebaseStatus.ready) {
-        await hydrateFromRemoteIfPossible();
-      }
-      renderAll();
-    })();
-  } catch (error) {
-    console.error("Falha ao inicializar o coach:", error);
-    renderAll();
-  }
+    storageWrite(STORAGE_KEY, {
+        profile: state.profile,
+        plan: state.plan,
+        checkins: state.checkins,
+        selectedWeek: state.selectedWeek,
+    });
 }
 
-main();
+init();
