@@ -66,10 +66,10 @@ export function isFirebaseReady() {
 
 async function loadFirebaseModules() {
   const [appModule, appCheckModule, authModule, firestoreModule] = await Promise.all([
-    import("https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js"),
-    import("https://www.gstatic.com/firebasejs/10.12.5/firebase-app-check.js"),
-    import("https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js"),
-    import("https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js"),
+    import("https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js"),
+    import("https://www.gstatic.com/firebasejs/12.14.0/firebase-app-check.js"),
+    import("https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js"),
+    import("https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js"),
   ]);
 
   return {
