@@ -1,0 +1,6 @@
+.tmp-playwright/
+node_modules/
+*.log
+.env
+.env.*
+firebase-debug.log
