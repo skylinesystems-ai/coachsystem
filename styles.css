@@ -870,6 +870,10 @@ textarea {
   gap: 14px;
 }
 
+.payment-card h3 {
+  color: #ffffff;
+}
+
 .dialog-lead {
   color: var(--muted);
   line-height: 1.65;
@@ -893,6 +897,7 @@ textarea {
 }
 
 .payment-box strong {
+  color: #ffffff;
   font-size: 1.2rem;
   letter-spacing: 0.04em;
 }
